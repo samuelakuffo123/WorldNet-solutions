@@ -108,7 +108,10 @@ const ICONS = {
     menu: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>',
     plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
     arrowRight: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>',
-    download: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>'
+    download: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
+    eye: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>',
+    eyeOff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>',
+    check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
 };
 
 /* ---------------- Shared shell ---------------- */
@@ -1053,7 +1056,50 @@ function wireDashboardForms() {
     }
 }
 
-/* ---------------- Login ---------------- */
+/* ---------------- Login / Auth ---------------- */
+
+function wirePasswordToggles() {
+    document.querySelectorAll('.password-toggle').forEach((button) => {
+        button.addEventListener('click', () => {
+            const input = document.getElementById(button.dataset.target);
+            if (!input) return;
+            const show = input.type === 'password';
+            input.type = show ? 'text' : 'password';
+            button.innerHTML = show ? ICONS.eyeOff : ICONS.eye;
+            button.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+            input.focus();
+        });
+    });
+}
+
+function storeAuth(data) {
+    localStorage.setItem('worldnet_token', data.token);
+    localStorage.setItem('worldnet_admin', JSON.stringify(data.admin || {}));
+}
+
+function redirectAfterAuth(message) {
+    showToast(message);
+    setTimeout(() => {
+        window.location.href = '/admin/dashboard.html';
+    }, 450);
+}
+
+function wireAuthTabs() {
+    const tabLogin = document.getElementById('tab-login');
+    const tabRegister = document.getElementById('tab-register');
+    const loginForm = document.getElementById('login-form');
+    const registerForm = document.getElementById('register-form');
+    if (!tabLogin || !tabRegister) return;
+
+    const activate = (showLogin) => {
+        tabLogin.classList.toggle('active', showLogin);
+        tabRegister.classList.toggle('active', !showLogin);
+        if (loginForm) loginForm.classList.toggle('auth-hidden', !showLogin);
+        if (registerForm) registerForm.classList.toggle('auth-hidden', showLogin);
+    };
+    tabLogin.addEventListener('click', () => activate(true));
+    tabRegister.addEventListener('click', () => activate(false));
+}
 
 function wireLogin() {
     const loginForm = document.getElementById('login-form');
@@ -1071,17 +1117,143 @@ function wireLogin() {
             });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(data.error || 'Login failed');
-            localStorage.setItem('worldnet_token', data.token);
-            localStorage.setItem('worldnet_admin', JSON.stringify(data.admin || {}));
-            showToast(`Welcome, ${data.admin?.name?.split(' ')[0] || 'Admin'}!`);
-            setTimeout(() => {
-                window.location.href = '/admin/dashboard.html';
-            }, 450);
+            storeAuth(data);
+            redirectAfterAuth(`Welcome, ${data.admin?.name?.split(' ')[0] || 'Admin'}!`);
         } catch (error) {
             if (button) { button.disabled = false; button.textContent = 'Sign in'; }
             showToast(error.message);
         }
     });
+}
+
+function wireRegister() {
+    const registerForm = document.getElementById('register-form');
+    if (!registerForm) return;
+    registerForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const payload = Object.fromEntries(new FormData(registerForm).entries());
+        const button = registerForm.querySelector('button[type="submit"]');
+        if (button) { button.disabled = true; button.textContent = 'Creating account…'; }
+        try {
+            const res = await fetch('/api/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || 'Registration failed');
+            storeAuth(data);
+            redirectAfterAuth(`Welcome, ${data.admin?.name?.split(' ')[0] || 'Admin'}!`);
+        } catch (error) {
+            if (button) { button.disabled = false; button.textContent = 'Create account'; }
+            showToast(error.message);
+        }
+    });
+}
+
+function wireForgotPassword() {
+    const forgotForm = document.getElementById('forgot-form');
+    if (!forgotForm) return;
+    forgotForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const payload = Object.fromEntries(new FormData(forgotForm).entries());
+        const button = forgotForm.querySelector('button[type="submit"]');
+        if (button) { button.disabled = true; button.textContent = 'Sending…'; }
+        try {
+            const res = await fetch('/api/forgot-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || 'Something went wrong');
+            const notice = document.getElementById('forgot-success');
+            if (notice) {
+                notice.classList.add('show');
+                notice.innerHTML = `<p>${data.message || 'Reset link sent.'}</p>${data.devResetLink ? `<p style="margin-top:0.5rem;word-break:break-all"><a href="${data.devResetLink}" target="_blank" rel="noopener">Open reset link (dev mode — SMTP not configured)</a></p>` : ''}`;
+            }
+            if (button) { button.disabled = false; button.textContent = 'Send reset link'; }
+            forgotForm.reset();
+        } catch (error) {
+            if (button) { button.disabled = false; button.textContent = 'Send reset link'; }
+            showToast(error.message);
+        }
+    });
+}
+
+function wireResetPassword() {
+    const resetForm = document.getElementById('reset-form');
+    if (!resetForm) return;
+    const token = new URLSearchParams(window.location.search).get('token');
+    const tokenInput = document.getElementById('reset-token');
+    if (tokenInput) tokenInput.value = token || '';
+    if (!token) {
+        showToast('This reset link is missing a token. Request a new one.');
+    }
+    resetForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const payload = Object.fromEntries(new FormData(resetForm).entries());
+        if (payload.password !== payload.confirm) {
+            showToast('Passwords do not match.');
+            return;
+        }
+        const button = resetForm.querySelector('button[type="submit"]');
+        if (button) { button.disabled = true; button.textContent = 'Resetting…'; }
+        try {
+            const res = await fetch('/api/reset-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token: payload.token, password: payload.password })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || 'Password reset failed');
+            showToast(data.message || 'Password updated!');
+            setTimeout(() => {
+                window.location.href = '/admin/login.html';
+            }, 900);
+        } catch (error) {
+            if (button) { button.disabled = false; button.textContent = 'Reset password'; }
+            showToast(error.message);
+        }
+    });
+}
+
+function handleGoogleCredential(credential) {
+    fetch('/api/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential })
+    })
+        .then((res) => res.json().catch(() => ({})))
+        .then((data) => {
+            if (!data.ok) throw new Error(data.error || 'Google sign-in failed');
+            storeAuth(data);
+            redirectAfterAuth(`Welcome, ${data.admin?.name?.split(' ')[0] || 'Admin'}!`);
+        })
+        .catch((error) => showToast(error.message));
+}
+
+function wireGoogleSignIn() {
+    const googleContainer = document.getElementById('google-signin');
+    if (!googleContainer) return;
+    fetch('/api/auth/config')
+        .then((res) => res.json().catch(() => ({})))
+        .then((config) => {
+            if (!config.googleClientId) {
+                googleContainer.innerHTML = '<p class="auth-note">Google sign-in is not enabled on this server yet.</p>';
+                return;
+            }
+            googleContainer.innerHTML = '<div id="g_id_onload" data-client_id="' + config.googleClientId + '" data-callback="onGoogleSignIn"></div><div class="g_id_signin" data-type="standard" data-shape="pill" data-theme="outline" data-text="continue_with" data-size="large"></div>';
+            window.onGoogleSignIn = (response) => handleGoogleCredential(response.credential);
+            const script = document.createElement('script');
+            script.src = 'https://accounts.google.com/gsi/client';
+            script.async = true;
+            script.defer = true;
+            document.body.appendChild(script);
+        })
+        .catch(() => {
+            googleContainer.innerHTML = '';
+        });
 }
 
 /* ---------------- Router ---------------- */
@@ -1134,10 +1306,18 @@ function initAdmin() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    wirePasswordToggles();
+    wireAuthTabs();
     wireLogin();
+    wireRegister();
+    wireForgotPassword();
+    wireResetPassword();
+    wireGoogleSignIn();
 
     const isAdminPage = window.location.pathname.startsWith('/admin/');
-    if (isAdminPage && !document.getElementById('login-form')) {
+    const authPages = ['login.html', 'register.html', 'forgot-password.html', 'reset-password.html'];
+    const currentPage = window.location.pathname.split('/').pop();
+    if (isAdminPage && !document.getElementById('login-form') && !authPages.includes(currentPage)) {
         initAdmin();
     }
 });

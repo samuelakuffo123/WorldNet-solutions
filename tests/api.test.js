@@ -48,6 +48,140 @@ test('health endpoint responds successfully', async () => {
     }
 });
 
+test('a new admin can register and then sign in', async () => {
+    const { baseUrl, cleanup } = await startTestServer();
+    try {
+        const registerResponse = await fetch(`${baseUrl}/api/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: 'New Admin', email: 'new-admin@example.com', password: 's3cret-pass' })
+        });
+        assert.equal(registerResponse.status, 201);
+        const registerBody = await registerResponse.json();
+        assert.equal(registerBody.admin.email, 'new-admin@example.com');
+        assert.ok(registerBody.token);
+
+        const duplicateResponse = await fetch(`${baseUrl}/api/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: 'Dup', email: 'NEW-ADMIN@example.com', password: 's3cret-pass' })
+        });
+        assert.equal(duplicateResponse.status, 409);
+
+        const shortPasswordResponse = await fetch(`${baseUrl}/api/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: 'Short', email: 'short@example.com', password: '123' })
+        });
+        assert.equal(shortPasswordResponse.status, 400);
+
+        const loginResponse = await fetch(`${baseUrl}/api/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: 'new-admin@example.com', password: 's3cret-pass' })
+        });
+        assert.equal(loginResponse.status, 200);
+    } finally {
+        await cleanup();
+    }
+});
+
+test('forgot password issues a reset token and reset-password updates it', async () => {
+    const { baseUrl, cleanup } = await startTestServer();
+    try {
+        const forgotResponse = await fetch(`${baseUrl}/api/forgot-password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: 'admin@worldnetict.com' })
+        });
+        assert.equal(forgotResponse.status, 200);
+        const forgotBody = await forgotResponse.json();
+        assert.ok(forgotBody.devResetLink, 'SMTP is not configured in tests, so a dev reset link should be returned');
+        const token = new URL(forgotBody.devResetLink).searchParams.get('token');
+        assert.ok(token);
+
+        const weakResetResponse = await fetch(`${baseUrl}/api/reset-password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token, password: 'short' })
+        });
+        assert.equal(weakResetResponse.status, 400);
+
+        const resetResponse = await fetch(`${baseUrl}/api/reset-password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token, password: 'brand-new-pass' })
+        });
+        assert.equal(resetResponse.status, 200);
+
+        const oldLogin = await fetch(`${baseUrl}/api/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: 'admin@worldnetict.com', password: 'admin123' })
+        });
+        assert.equal(oldLogin.status, 401);
+
+        const newLogin = await fetch(`${baseUrl}/api/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: 'admin@worldnetict.com', password: 'brand-new-pass' })
+        });
+        assert.equal(newLogin.status, 200);
+    } finally {
+        await cleanup();
+    }
+});
+
+test('unknown email for forgot password still returns ok', async () => {
+    const { baseUrl, cleanup } = await startTestServer();
+    try {
+        const response = await fetch(`${baseUrl}/api/forgot-password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: 'nobody@example.com' })
+        });
+        assert.equal(response.status, 200);
+        const body = await response.json();
+        assert.equal(body.ok, true);
+    } finally {
+        await cleanup();
+    }
+});
+
+test('google auth rejects missing or invalid credentials', async () => {
+    const { baseUrl, cleanup } = await startTestServer();
+    try {
+        const missingResponse = await fetch(`${baseUrl}/api/auth/google`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
+        });
+        assert.equal(missingResponse.status, 400);
+
+        const notConfiguredResponse = await fetch(`${baseUrl}/api/auth/google`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ credential: 'not-a-real-token' })
+        });
+        assert.equal(notConfiguredResponse.status, 503);
+    } finally {
+        await cleanup();
+    }
+});
+
+test('auth config endpoint returns registration flag and google client id', async () => {
+    const { baseUrl, cleanup } = await startTestServer();
+    try {
+        const response = await fetch(`${baseUrl}/api/auth/config`);
+        assert.equal(response.status, 200);
+        const body = await response.json();
+        assert.equal(body.allowRegistration, true);
+        assert.ok('googleClientId' in body);
+    } finally {
+        await cleanup();
+    }
+});
+
 test('appointment booking rejects past dates and saves future requests', async () => {
     const { baseUrl, cleanup } = await startTestServer();
     try {

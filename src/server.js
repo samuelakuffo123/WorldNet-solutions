@@ -23,6 +23,7 @@ app.use(express.urlencoded({ extended: true }));
 
 const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 12, standardHeaders: true, legacyHeaders: false });
 const formLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 60, standardHeaders: true, legacyHeaders: false });
+const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 12, standardHeaders: true, legacyHeaders: false });
 
 const initialServices = [
     {
@@ -159,6 +160,14 @@ function isValidEmail(value) {
 
 function createToken(payload) {
     return jwt.sign(payload, JWT_SECRET, { expiresIn: '8h' });
+}
+
+function sha256(value) {
+    return crypto.createHash('sha256').update(String(value)).digest('hex');
+}
+
+function makeResetToken() {
+    return crypto.randomBytes(32).toString('hex');
 }
 
 function authRequired(req, res, next) {
@@ -564,6 +573,114 @@ app.post('/api/login', loginLimiter, async (req, res) => {
 });
 
 app.post('/api/logout', (_req, res) => res.json({ ok: true }));
+
+app.get('/api/auth/config', (_req, res) => {
+    res.json({
+        allowRegistration: true,
+        googleClientId: process.env.GOOGLE_CLIENT_ID || ''
+    });
+});
+
+app.post('/api/register', authLimiter, async (req, res) => {
+    const { name, email, password } = req.body;
+    const missing = ['name', 'email', 'password'].filter((field) => !String(req.body[field] || '').trim());
+    if (missing.length) return res.status(400).json({ error: `Missing required fields: ${missing.join(', ')}` });
+    if (!isValidEmail(String(email))) return res.status(400).json({ error: 'Please enter a valid email address.' });
+    if (String(password).length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters.' });
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const exists = state.admins.some((item) => item.email.toLowerCase() === normalizedEmail);
+    if (exists) return res.status(409).json({ error: 'An account with this email already exists. Try signing in.' });
+    const admin = {
+        id: `adm-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`,
+        name: sanitizeText(name),
+        email: normalizedEmail,
+        passwordHash: bcrypt.hashSync(String(password), 10),
+        role: 'admin'
+    };
+    state.admins.push(admin);
+    await saveState();
+    const token = createToken({ id: admin.id, email: admin.email, name: admin.name, role: admin.role });
+    res.status(201).json({ ok: true, token, admin: { id: admin.id, name: admin.name, email: admin.email, role: admin.role } });
+});
+
+app.post('/api/forgot-password', authLimiter, async (req, res) => {
+    const { email } = req.body;
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    const admin = state.admins.find((item) => item.email.toLowerCase() === normalizedEmail);
+    if (!admin) return res.json({ ok: true, message: 'If an account exists for this email, a reset link has been sent.' });
+
+    const token = makeResetToken();
+    admin.resetTokenHash = sha256(token);
+    admin.resetTokenExpires = Date.now() + 60 * 60 * 1000;
+    await saveState();
+
+    const resetUrl = `${process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get('host')}`}/admin/reset-password.html?token=${token}`;
+    const emailResult = await sendEmail({
+        to: admin.email,
+        subject: `${state.settings.companyName} — Reset your admin password`,
+        text: `Hi ${admin.name},\n\nClick this link to reset your admin password (valid for 1 hour):\n${resetUrl}\n\nIf you did not request this, you can ignore this email.`,
+        html: `<p>Hi ${escapeHtml(admin.name)},</p><p>Click the button below to reset your admin password. The link expires in 1 hour.</p><p style="margin:1.2rem 0"><a href="${resetUrl}" style="background:#2563eb;color:#fff;padding:0.7rem 1.2rem;border-radius:0.6rem;text-decoration:none;font-weight:600">Reset password</a></p><p>If you did not request this, you can safely ignore this email.</p>`
+    });
+
+    const response = { ok: true, message: 'If an account exists for this email, a reset link has been sent.' };
+    if (emailResult && emailResult.skipped) response.devResetLink = resetUrl;
+    res.json(response);
+});
+
+app.post('/api/reset-password', authLimiter, async (req, res) => {
+    const { token, password } = req.body;
+    if (!token) return res.status(400).json({ error: 'Missing reset token.' });
+    if (!password || String(password).length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters.' });
+    const tokenHash = sha256(String(token));
+    const admin = state.admins.find((item) => item.resetTokenHash && item.resetTokenHash === tokenHash);
+    if (!admin) return res.status(400).json({ error: 'This reset link is invalid or has expired.' });
+    if (!admin.resetTokenExpires || Date.now() > admin.resetTokenExpires) {
+        return res.status(400).json({ error: 'This reset link has expired. Please request a new one.' });
+    }
+    admin.passwordHash = bcrypt.hashSync(String(password), 10);
+    delete admin.resetTokenHash;
+    delete admin.resetTokenExpires;
+    await saveState();
+    res.json({ ok: true, message: 'Password updated. You can now sign in.' });
+});
+
+app.post('/api/auth/google', authLimiter, async (req, res) => {
+    const { credential } = req.body;
+    if (!credential) return res.status(400).json({ error: 'Missing Google credential.' });
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    if (!clientId) return res.status(503).json({ error: 'Google sign-in is not configured on this server.' });
+
+    let payload;
+    try {
+        const verifyResponse = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(String(credential))}`);
+        if (!verifyResponse.ok) throw new Error('Google rejected the credential');
+        payload = await verifyResponse.json();
+    } catch (_error) {
+        return res.status(401).json({ error: 'Google could not verify your sign-in. Please try again.' });
+    }
+    if (payload.aud !== clientId) return res.status(401).json({ error: 'The Google sign-in was issued for a different application.' });
+
+    const googleEmail = String(payload.email || '').trim().toLowerCase();
+    if (!googleEmail || payload.email_verified !== 'true') {
+        return res.status(401).json({ error: 'Your Google account email is not verified.' });
+    }
+
+    let admin = state.admins.find((item) => item.email.toLowerCase() === googleEmail);
+    if (!admin) {
+        admin = {
+            id: `adm-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`,
+            name: payload.name || googleEmail.split('@')[0],
+            email: googleEmail,
+            passwordHash: bcrypt.hashSync(crypto.randomBytes(32).toString('hex'), 10),
+            role: 'admin',
+            provider: 'google'
+        };
+        state.admins.push(admin);
+        await saveState();
+    }
+    const token = createToken({ id: admin.id, email: admin.email, name: admin.name, role: admin.role });
+    res.json({ ok: true, token, admin: { id: admin.id, name: admin.name, email: admin.email, role: admin.role }, provider: 'google' });
+});
 
 app.get('/api/settings', (_req, res) => res.json(state.settings));
 
