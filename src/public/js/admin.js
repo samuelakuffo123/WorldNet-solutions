@@ -196,13 +196,27 @@ function renderShell(activeKey, pageTitle, pageSubtitle) {
     const app = document.getElementById('admin-app');
     app.innerHTML = `
         ${buildSidebar(activeKey)}
+        <div class="admin-backdrop" id="admin-backdrop"></div>
         <div class="admin-main">
             ${buildTopbar(pageTitle, pageSubtitle)}
             <main class="admin-content" id="admin-content"></main>
         </div>`;
 
-    document.getElementById('sidebar-toggle').addEventListener('click', () => {
-        document.getElementById('admin-sidebar').classList.toggle('open');
+    const sidebar = document.getElementById('admin-sidebar');
+    const backdrop = document.getElementById('admin-backdrop');
+    const toggleSidebar = () => {
+        sidebar.classList.toggle('open');
+        backdrop.classList.toggle('open');
+    };
+    const closeSidebar = () => {
+        sidebar.classList.remove('open');
+        backdrop.classList.remove('open');
+    };
+
+    document.getElementById('sidebar-toggle').addEventListener('click', toggleSidebar);
+    backdrop.addEventListener('click', closeSidebar);
+    sidebar.addEventListener('click', (event) => {
+        if (event.target.closest('.nav-link')) closeSidebar();
     });
 
     document.getElementById('logout-btn').addEventListener('click', async () => {
