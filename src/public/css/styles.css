@@ -323,71 +323,26 @@ nav {
 
 .hero-marquee-item {
     position: absolute;
-    bottom: 14%;
     width: 80px;
     height: 28px;
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.55);
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3);
-    will-change: transform;
-    animation-iteration-count: infinite;
-    animation-timing-function: linear;
-    animation-play-state: running;
 }
 
 .hero-marquee-item.item-1 {
-    left: -20%;
-    transform: translateX(0) scale(0.92);
-    animation-name: slideX1;
-    animation-duration: 14s;
+    right: 6%;
+    bottom: 14%;
 }
 
 .hero-marquee-item.item-2 {
-    left: -25%;
+    right: 18%;
     bottom: 24%;
-    transform: translateX(0) scale(1.05);
-    animation-name: slideX2;
-    animation-duration: 18s;
-    animation-delay: 3s;
 }
 
 .hero-marquee-item.item-3 {
-    left: -18%;
+    right: 30%;
     bottom: 32%;
-    transform: translateX(0) scale(0.78);
-    animation-name: slideX3;
-    animation-duration: 11.8s;
-    animation-delay: 1.6s;
-}
-
-@keyframes slideX1 {
-    0% {
-        transform: translateX(0) scale(0.92);
-    }
-
-    100% {
-        transform: translateX(125vw) scale(0.92);
-    }
-}
-
-@keyframes slideX2 {
-    0% {
-        transform: translateX(0) scale(1.05);
-    }
-
-    100% {
-        transform: translateX(118vw) scale(1.05);
-    }
-}
-
-@keyframes slideX3 {
-    0% {
-        transform: translateX(0) scale(0.78);
-    }
-
-    100% {
-        transform: translateX(130vw) scale(0.78);
-    }
 }
 
 .hero,
