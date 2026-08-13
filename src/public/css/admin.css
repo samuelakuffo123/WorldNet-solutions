@@ -33,6 +33,7 @@ body.admin-body {
     color: var(--wn-slate-900);
     min-height: 100vh;
     line-height: 1.6;
+    overflow-x: hidden;
 }
 
 body.admin-body::before,
