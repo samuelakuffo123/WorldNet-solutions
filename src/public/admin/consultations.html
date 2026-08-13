@@ -5,32 +5,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Admin Consultations | WorldNet</title>
-    <link rel="stylesheet" href="/css/styles.css" />
+    <link rel="stylesheet" href="/css/admin.css" />
 </head>
 
-<body>
-    <header style="background:white">
-        <div class="container" style="display:flex; justify-content:space-between; align-items:center; padding:1rem 0">
-            <h2 style="margin:0">WorldNet Admin</h2>
-            <div style="display:flex; gap:0.7rem; flex-wrap:wrap">
-                <a class="btn btn-secondary" href="/admin/dashboard.html">Back to dashboard</a>
-                <button id="logout-btn" class="btn btn-secondary">Logout</button>
-            </div>
-        </div>
-    </header>
-
-    <main class="section">
-        <div class="container">
-            <div class="card" style="padding:1rem; margin-bottom:1rem">
-                <h2 style="margin:0 0 0.35rem">Consultation records</h2>
-                <p id="records-subtitle" class="muted" style="margin:0">Full consultation records with detailed
-                    requester information and status updates.</p>
-            </div>
-            <div id="records-content"></div>
-        </div>
-    </main>
-
-    <div id="toast" class="toast"></div>
+<body class="admin-body">
+    <div id="admin-app"></div>
+    <div id="toast" class="wn-toast"></div>
     <script src="/js/admin.js"></script>
 </body>
 

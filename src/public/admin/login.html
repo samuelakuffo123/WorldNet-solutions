@@ -5,26 +5,29 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Admin Login | WorldNet</title>
-    <link rel="stylesheet" href="/css/styles.css" />
+    <link rel="stylesheet" href="/css/admin.css" />
 </head>
 
-<body>
-    <main class="section">
-        <div class="container" style="max-width:480px">
-            <div class="card" style="padding:1.5rem">
-                <h1>Admin login</h1>
-                <p class="muted">Use the seeded admin credentials to access the dashboard.</p>
-                <form id="login-form" class="form-grid" style="margin-top:1rem">
-                    <div><label>Email</label><input type="email" name="email" value="admin@worldnetict.com" required />
-                    </div>
-                    <div><label>Password</label><input type="password" name="password" value="admin123" required />
-                    </div>
-                    <button class="btn btn-primary" type="submit">Log in</button>
-                </form>
+<body class="login-body">
+    <div class="login-card">
+        <div class="brand-mark">W</div>
+        <h1>Welcome back</h1>
+        <p class="login-sub">Sign in to the WorldNet admin console.</p>
+        <form id="login-form" class="login-form">
+            <div>
+                <label for="email">Email address</label>
+                <input id="email" type="email" name="email" placeholder="admin@worldnetict.com" required />
             </div>
-        </div>
-    </main>
-    <div id="toast" class="toast"></div>
+            <div>
+                <label for="password">Password</label>
+                <input id="password" type="password" name="password" placeholder="••••••••" required />
+            </div>
+            <button class="btn-wn btn-wn-primary" type="submit" style="width:100%; padding:0.85rem">Sign in</button>
+        </form>
+        <p style="text-align:center; font-size:0.78rem; color:#64748b; margin:1.2rem 0 0">WorldNet ICT Solutions · Admin
+            Console</p>
+    </div>
+    <div id="toast" class="wn-toast"></div>
     <script src="/js/admin.js"></script>
 </body>
 
