@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Worker Login | WorldNet</title>
+    <link rel="stylesheet" href="/css/admin.css" />
+</head>
+
+<body class="login-body">
+    <div class="login-card">
+        <div class="brand-mark">W</div>
+        <h1>Team portal</h1>
+        <p class="login-sub">Sign in to view your assignments.</p>
+
+        <form id="worker-login-form" class="login-form" autocomplete="on">
+            <div>
+                <label for="email">Email address</label>
+                <input id="email" type="email" name="email" placeholder="you@worldnetict.com" required autocomplete="email" />
+            </div>
+            <div>
+                <label for="password">Password</label>
+                <div class="password-field">
+                    <input id="password" type="password" name="password" placeholder="••••••••" required autocomplete="current-password" />
+                    <button type="button" class="password-toggle" data-target="password" aria-label="Show password"></button>
+                </div>
+            </div>
+            <button class="btn-wn btn-wn-primary" type="submit" style="width:100%; padding:0.85rem">Sign in</button>
+        </form>
+
+        <p style="text-align:center; font-size:0.78rem; color:#64748b; margin:1.1rem 0 0">WorldNet ICT Solutions · Team
+            Portal</p>
+    </div>
+    <div id="toast" class="wn-toast"></div>
+    <script src="/js/worker.js"></script>
+</body>
+
+</html>

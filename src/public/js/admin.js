@@ -111,7 +111,8 @@ const ICONS = {
     download: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
     eye: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>',
     eyeOff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>',
-    check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
+    check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
+    departments: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v14M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M9 11h.01M15 11h.01M9 15h.01M15 15h.01"/></svg>'
 };
 
 /* ---------------- Shared shell ---------------- */
@@ -122,6 +123,8 @@ const NAV_ITEMS = [
     { key: 'inquiries', label: 'Inquiries', href: '/admin/records.html?type=inquiries', icon: 'inquiries' },
     { key: 'consultations', label: 'Consultations', href: '/admin/consultations.html', icon: 'consultations' },
     { key: 'portfolio', label: 'Portfolio', href: '/admin/records.html?type=portfolio', icon: 'portfolio' },
+    { key: 'workers', label: 'Workers', href: '/admin/workers.html', icon: 'team' },
+    { key: 'departments', label: 'Departments', href: '/admin/departments.html', icon: 'departments' },
     { key: 'team', label: 'Team', href: '/admin/dashboard.html#team', icon: 'team' }
 ];
 
@@ -129,6 +132,8 @@ function getCurrentPageKey() {
     const pathname = window.location.pathname;
     if (pathname === '/admin/dashboard.html') return 'dashboard';
     if (pathname === '/admin/consultations.html') return 'consultations';
+    if (pathname === '/admin/workers.html') return 'workers';
+    if (pathname === '/admin/departments.html') return 'departments';
     if (pathname === '/admin/records.html') {
         return new URLSearchParams(window.location.search).get('type') || 'services';
     }
@@ -138,7 +143,7 @@ function getCurrentPageKey() {
 function buildSidebar(activeKey) {
     const admin = getAdminProfile();
     const groups = {
-        general: NAV_ITEMS.slice(0, 6)
+        general: NAV_ITEMS.slice(0, 7)
     };
     const navLinks = groups.general
         .map((item) => `
@@ -942,6 +947,247 @@ async function renderRecordsPage(type) {
     }
 }
 
+/* ---------------- Workers ---------------- */
+
+async function renderWorkersPage() {
+    const content = document.getElementById('admin-content');
+    try {
+        const [workers, consultations] = await Promise.all([
+            authApi('/api/admin/workers'),
+            authApi('/api/consultations')
+        ]);
+        const departmentOptions = [...new Set(workers.map((worker) => worker.department))].sort();
+        content.innerHTML = `
+            <div class="admin-card">
+                <div class="card-head">
+                    <h3>Workers</h3>
+                    <span class="cell-muted">${workers.length} member${workers.length === 1 ? '' : 's'}</span>
+                </div>
+                <details class="worker-add-panel" style="margin-bottom:1rem">
+                    <summary style="font-weight:700; font-size:0.85rem; cursor:pointer">+ Add team member</summary>
+                    <form class="admin-form" id="worker-form" style="margin-top:0.9rem">
+                        <div class="form-row">
+                            <div><label>Name</label><input name="name" placeholder="e.g. Adjoa Mensah" required /></div>
+                            <div><label>Email (for login)</label><input name="email" type="email" placeholder="worker@worldnetict.com" /></div>
+                            <div><label>Password</label><input name="password" type="password" placeholder="At least 6 characters" /></div>
+                        </div>
+                        <div class="form-row">
+                            <div><label>Department</label><input name="department" list="department-list" placeholder="e.g. Infrastructure" required /></div>
+                            <div><label>Role</label><input name="role" placeholder="e.g. Network Engineer" required /></div>
+                        </div>
+                        <datalist id="department-list">${departmentOptions.map((department) => `<option value="${escapeHtml(department)}"></option>`).join('')}</datalist>
+                        <button class="btn-wn btn-wn-primary" type="submit">Add worker</button>
+                    </form>
+                </details>
+                <div class="admin-table-wrap">
+                    <table class="admin-table">
+                        <thead><tr><th>Worker</th><th>Email</th><th>Department</th><th>Role</th><th>Assignments</th><th>Actions</th></tr></thead>
+                        <tbody>
+                            ${workers.length ? workers.map((worker) => {
+                                const workerAssignments = consultations.filter((item) => item.assignedWorker === worker.name);
+                                return `
+                                <tr>
+                                    <td class="cell-strong">${escapeHtml(worker.name)}</td>
+                                    <td class="cell-muted">${escapeHtml(worker.email || '—')}</td>
+                                    <td class="cell-muted">${escapeHtml(worker.department)}</td>
+                                    <td class="cell-muted">${escapeHtml(worker.role)}</td>
+                                    <td><span class="status-pill ${workerAssignments.length ? 'contacted' : ''}">${workerAssignments.length} assignment${workerAssignments.length === 1 ? '' : 's'}</span></td>
+                                    <td>
+                                        <div style="display:flex; gap:0.4rem; align-items:center; flex-wrap:wrap">
+                                            <button class="btn-wn btn-wn-secondary" data-view-assignments="${worker.id}">View</button>
+                                            <button class="btn-wn btn-wn-secondary" data-edit-worker="${worker.id}">Edit</button>
+                                            <button class="btn-wn btn-wn-danger" data-delete-worker="${worker.id}">Delete</button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr class="assignments-row" id="assignments-${worker.id}" style="display:none">
+                                    <td colspan="6">
+                                        <div class="worker-assignments">
+                                            ${workerAssignments.length ? workerAssignments.map((item) => `
+                                                <div class="assignment-item">
+                                                    <div><strong>${escapeHtml(item.name)}</strong><span class="cell-muted"> · ${escapeHtml(item.company || '—')}</span></div>
+                                                    <div class="cell-muted">${escapeHtml(item.preferred_date)} @ ${escapeHtml(item.preferred_time)}</div>
+                                                    <span class="status-pill ${statusClass(item.status)}">${escapeHtml(item.status)}</span>
+                                                </div>`).join('') : '<p class="cell-muted">No assignments.</p>'}
+                                        </div>
+                                    </td>
+                                </tr>`;
+                            }).join('') : '<tr><td colspan="6" class="cell-muted">No team members yet.</td></tr>'}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="admin-card" id="edit-worker-card" style="display:none">
+                <div class="card-head"><h3>Edit worker</h3><span class="cell-muted" id="edit-worker-name"></span></div>
+                <form class="admin-form" id="worker-edit-form">
+                    <div class="form-row">
+                        <div><label>Name</label><input name="name" required /></div>
+                        <div><label>Email (for login)</label><input name="email" type="email" /></div>
+                        <div><label>New password (optional)</label><input name="password" type="password" placeholder="Leave blank to keep current" /></div>
+                    </div>
+                    <div class="form-row">
+                        <div><label>Department</label><input name="department" list="department-list" required /></div>
+                        <div><label>Role</label><input name="role" required /></div>
+                    </div>
+                    <div style="display:flex; gap:0.5rem">
+                        <button class="btn-wn btn-wn-primary" type="submit">Save changes</button>
+                        <button class="btn-wn btn-wn-ghost" type="button" id="cancel-edit-worker">Cancel</button>
+                    </div>
+                </form>
+            </div>`;
+
+        document.getElementById('worker-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const form = event.currentTarget;
+            const payload = Object.fromEntries(new FormData(form).entries());
+            try {
+                await authApi('/api/admin/workers', {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                });
+                showToast('Worker added');
+                renderWorkersPage();
+            } catch (error) {
+                showToast(error.message);
+            }
+        });
+
+        document.querySelectorAll('[data-view-assignments]').forEach((button) => {
+            button.addEventListener('click', () => {
+                const row = document.getElementById(`assignments-${button.getAttribute('data-view-assignments')}`);
+                if (row) row.style.display = row.style.display === 'none' ? '' : 'none';
+            });
+        });
+
+        document.querySelectorAll('[data-edit-worker]').forEach((button) => {
+            button.addEventListener('click', () => {
+                const worker = workers.find((item) => item.id === button.getAttribute('data-edit-worker'));
+                if (!worker) return;
+                const card = document.getElementById('edit-worker-card');
+                const form = document.getElementById('worker-edit-form');
+                document.getElementById('edit-worker-name').textContent = worker.name;
+                form.dataset.workerId = worker.id;
+                form.name.value = worker.name;
+                form.email.value = worker.email || '';
+                form.password.value = '';
+                form.department.value = worker.department;
+                form.role.value = worker.role;
+                card.style.display = '';
+                card.scrollIntoView({ behavior: 'smooth' });
+            });
+        });
+
+        document.getElementById('worker-edit-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const form = event.currentTarget;
+            const payload = Object.fromEntries(new FormData(form).entries());
+            delete payload.password;
+            if (form.password.value.trim()) payload.password = form.password.value.trim();
+            try {
+                await authApi(`/api/admin/workers/${form.dataset.workerId}`, {
+                    method: 'PUT',
+                    body: JSON.stringify(payload)
+                });
+                showToast('Worker updated');
+                renderWorkersPage();
+            } catch (error) {
+                showToast(error.message);
+            }
+        });
+
+        document.getElementById('cancel-edit-worker').addEventListener('click', () => {
+            document.getElementById('edit-worker-card').style.display = 'none';
+        });
+
+        document.querySelectorAll('[data-delete-worker]').forEach((button) => {
+            button.addEventListener('click', async () => {
+                if (!window.confirm('Delete this worker? Their assignments will be unassigned.')) return;
+                await authApi(`/api/admin/workers/${button.getAttribute('data-delete-worker')}`, { method: 'DELETE' });
+                showToast('Worker deleted');
+                renderWorkersPage();
+            });
+        });
+    } catch (error) {
+        content.innerHTML = `<div class="admin-card"><p class="cell-muted">${escapeHtml(error.message)}</p></div>`;
+    }
+}
+
+/* ---------------- Departments ---------------- */
+
+async function renderDepartmentsPage() {
+    const content = document.getElementById('admin-content');
+    try {
+        const [departments, consultations, workers] = await Promise.all([
+            authApi('/api/admin/departments'),
+            authApi('/api/consultations'),
+            authApi('/api/admin/workers')
+        ]);
+        const unassigned = consultations.filter((item) => !item.assignedDepartment);
+        content.innerHTML = `
+            <div class="dept-stats">
+                <div class="stat-card"><strong>${departments.length}</strong><span>Departments</span></div>
+                <div class="stat-card"><strong>${workers.length}</strong><span>Total workers</span></div>
+                <div class="stat-card"><strong>${unassigned.length}</strong><span>Unassigned consultations</span></div>
+            </div>
+            <div class="dept-grid">
+                ${departments.length ? departments.map((department) => {
+                    const departmentWorkers = department.workers;
+                    const departmentConsultations = consultations.filter((item) => item.assignedDepartment === department.department);
+                    return `
+                    <div class="admin-card dept-card">
+                        <div class="card-head">
+                            <div>
+                                <h3>${escapeHtml(department.department)}</h3>
+                                <span class="cell-muted">${departmentWorkers.length} worker${departmentWorkers.length === 1 ? '' : 's'} · ${department.consultationCount} assigned consultation${department.consultationCount === 1 ? '' : 's'}</span>
+                            </div>
+                        </div>
+                        <div class="dept-roster">
+                            ${departmentWorkers.length ? departmentWorkers.map((worker) => `
+                                <div class="roster-card">
+                                    <div class="roster-name"><span class="avatar" style="width:30px; height:30px; font-size:0.7rem; background:linear-gradient(135deg,#0ea5e9,#2563eb)">${escapeHtml(getInitials(worker.name))}</span>${escapeHtml(worker.name)}</div>
+                                    <p class="roster-meta">${escapeHtml(worker.role)}</p>
+                                </div>`).join('') : '<p class="cell-muted">No workers in this department.</p>'}
+                        </div>
+                        <div style="margin-top:1rem; border-top:1px solid var(--wn-border); padding-top:0.9rem">
+                            <p style="font-size:0.8rem; font-weight:700; margin:0 0 0.6rem">Assign consultation</p>
+                            ${departmentConsultations.length && departmentWorkers.length ? `
+                            <div style="display:flex; gap:0.4rem; align-items:center; flex-wrap:wrap">
+                                <select data-assign-select="consultation" style="border:1px solid var(--wn-border); border-radius:0.7rem; padding:0.4rem 0.5rem; font:inherit; font-size:0.8rem">
+                                    ${departmentConsultations.map((item) => `<option value="${item.id}">${escapeHtml(item.name)} — ${escapeHtml(item.preferred_date)} (${escapeHtml(item.status)})</option>`).join('')}
+                                </select>
+                                <select data-assign-worker="consultation" style="border:1px solid var(--wn-border); border-radius:0.7rem; padding:0.4rem 0.5rem; font:inherit; font-size:0.8rem">
+                                    ${departmentWorkers.map((worker) => `<option value="${escapeHtml(worker.name)}">${escapeHtml(worker.name)} (${escapeHtml(worker.role)})</option>`).join('')}
+                                </select>
+                                <button class="btn-wn btn-wn-secondary" data-assign-save="${department.department}">Assign</button>
+                            </div>` : '<p class="cell-muted">No consultations routed to this department yet.</p>'}
+                        </div>
+                    </div>`;
+                }).join('') : '<div class="admin-card"><p class="cell-muted">No departments yet.</p></div>'}
+            </div>`;
+
+        document.querySelectorAll('[data-assign-save]').forEach((button) => {
+            button.addEventListener('click', async () => {
+                const department = button.getAttribute('data-assign-save');
+                const card = button.closest('.dept-card');
+                const consultationSelect = card.querySelector('[data-assign-select="consultation"]');
+                const workerSelect = card.querySelector('[data-assign-worker="consultation"]');
+                if (!consultationSelect || !consultationSelect.value) return;
+                await authApi(`/api/consultations/${consultationSelect.value}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({
+                        assignedDepartment: department,
+                        assignedWorker: workerSelect.value
+                    })
+                });
+                showToast('Consultation assigned');
+                renderDepartmentsPage();
+            });
+        });
+    } catch (error) {
+        content.innerHTML = `<div class="admin-card"><p class="cell-muted">${escapeHtml(error.message)}</p></div>`;
+    }
+}
+
 /* ---------------- Forms ---------------- */
 
 function resetServiceForm() {
@@ -1268,6 +1514,12 @@ function currentPageInfo() {
     if (pathname === '/admin/consultations.html') {
         return { key: 'consultations', title: 'Consultations', subtitle: 'Assign and track consultation requests' };
     }
+    if (pathname === '/admin/workers.html') {
+        return { key: 'workers', title: 'Workers', subtitle: 'Manage team members and view their assignments' };
+    }
+    if (pathname === '/admin/departments.html') {
+        return { key: 'departments', title: 'Departments', subtitle: 'Departments, roles, and assignment routing' };
+    }
     if (pathname === '/admin/records.html') {
         const titles = { services: 'Services', inquiries: 'Inquiries', consultations: 'Consultations', portfolio: 'Portfolio' };
         return { key: type, title: titles[type] || 'Records', subtitle: `Full ${type} records` };
@@ -1285,6 +1537,8 @@ function initAdmin() {
     const isDashboard = window.location.pathname === '/admin/dashboard.html';
     const isConsultationsPage = window.location.pathname === '/admin/consultations.html';
     const isRecordsPage = window.location.pathname === '/admin/records.html';
+    const isWorkersPage = window.location.pathname === '/admin/workers.html';
+    const isDepartmentsPage = window.location.pathname === '/admin/departments.html';
 
     renderShell(page.key, page.title, page.subtitle);
     const content = document.getElementById('admin-content');
@@ -1297,6 +1551,10 @@ function initAdmin() {
         renderRecordsPage('consultations');
     } else if (isRecordsPage) {
         renderRecordsPage(page.key);
+    } else if (isWorkersPage) {
+        renderWorkersPage();
+    } else if (isDepartmentsPage) {
+        renderDepartmentsPage();
     }
 
     if (window.location.hash === '#team') {

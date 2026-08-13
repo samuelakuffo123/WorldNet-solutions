@@ -21,9 +21,9 @@ app.use(cors());
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 12, standardHeaders: true, legacyHeaders: false });
-const formLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 60, standardHeaders: true, legacyHeaders: false });
-const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 12, standardHeaders: true, legacyHeaders: false });
+const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: process.env.NODE_ENV === 'test' ? 1000 : 12, standardHeaders: true, legacyHeaders: false });
+const formLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: process.env.NODE_ENV === 'test' ? 1000 : 60, standardHeaders: true, legacyHeaders: false });
+const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: process.env.NODE_ENV === 'test' ? 1000 : 12, standardHeaders: true, legacyHeaders: false });
 
 const initialServices = [
     {
@@ -182,9 +182,9 @@ const initialData = {
     consultations: [],
     notifications: [],
     workers: [
-        { id: 'wrk-001', name: 'Ama Boateng', department: 'Infrastructure', role: 'Network Engineer' },
-        { id: 'wrk-002', name: 'Kofi Mensah', department: 'Security', role: 'Security Analyst' },
-        { id: 'wrk-003', name: 'Nadia Ali', department: 'Cloud', role: 'Solutions Architect' }
+        { id: 'wrk-001', name: 'Ama Boateng', department: 'Infrastructure', role: 'Network Engineer', email: 'ama.boateng@worldnetict.com', passwordHash: bcrypt.hashSync('worker123', 10) },
+        { id: 'wrk-002', name: 'Kofi Mensah', department: 'Security', role: 'Security Analyst', email: 'kofi.mensah@worldnetict.com', passwordHash: bcrypt.hashSync('worker123', 10) },
+        { id: 'wrk-003', name: 'Nadia Ali', department: 'Cloud', role: 'Solutions Architect', email: 'nadia.ali@worldnetict.com', passwordHash: bcrypt.hashSync('worker123', 10) }
     ],
     admins: [
         {
@@ -262,6 +262,20 @@ function authRequired(req, res, next) {
     } catch (error) {
         return res.status(401).json({ error: 'Invalid token' });
     }
+}
+
+function adminRequired(req, res, next) {
+    if (!req.admin || req.admin.role !== 'admin') {
+        return res.status(403).json({ error: 'Admin access required' });
+    }
+    next();
+}
+
+function workerRequired(req, res, next) {
+    if (!req.admin || req.admin.role !== 'worker') {
+        return res.status(403).json({ error: 'Worker access required' });
+    }
+    next();
 }
 
 function duplicateCheck(key, ttlMs = 5 * 60 * 1000) {
@@ -609,26 +623,92 @@ app.put('/api/admin/notifications/:id/read', authRequired, async (req, res) => {
     res.json(notification);
 });
 
-app.get('/api/admin/users', authRequired, (_req, res) => res.json(state.admins));
-app.get('/api/admin/workers', authRequired, (_req, res) => res.json(state.workers));
+app.get('/api/admin/users', authRequired, adminRequired, (_req, res) => res.json(state.admins));
+app.get('/api/admin/workers', authRequired, adminRequired, (_req, res) => res.json(state.workers));
 
-app.post('/api/admin/workers', authRequired, async (req, res) => {
+app.post('/api/admin/workers', authRequired, adminRequired, async (req, res) => {
     const name = sanitizeText(req.body.name);
     const department = sanitizeText(req.body.department);
     const role = sanitizeText(req.body.role);
+    const email = String(req.body.email || '').trim().toLowerCase();
+    const password = String(req.body.password || '');
     if (!name || !department || !role) {
         return res.status(400).json({ error: 'Name, department, and role are required.' });
     }
     if (state.workers.some((worker) => worker.name.toLowerCase() === name.toLowerCase())) {
         return res.status(409).json({ error: 'A worker with that name already exists.' });
     }
-    const worker = { id: `wrk-${crypto.randomBytes(3).toString('hex')}`, name, department, role };
+    if (email && state.workers.some((worker) => worker.email && worker.email.toLowerCase() === email)) {
+        return res.status(409).json({ error: 'A worker with that email already exists.' });
+    }
+    if (email && password && String(password).length < 6) {
+        return res.status(400).json({ error: 'Worker password must be at least 6 characters.' });
+    }
+    const worker = {
+        id: `wrk-${crypto.randomBytes(3).toString('hex')}`,
+        name,
+        department,
+        role,
+        email: email || '',
+        passwordHash: email && password ? bcrypt.hashSync(String(password), 10) : ''
+    };
     state.workers.push(worker);
     await saveState();
     res.status(201).json(worker);
 });
 
-app.delete('/api/admin/workers/:id', authRequired, async (req, res) => {
+app.put('/api/admin/workers/:id', authRequired, adminRequired, async (req, res) => {
+    const index = state.workers.findIndex((worker) => worker.id === req.params.id);
+    if (index < 0) return res.status(404).json({ error: 'Worker not found' });
+    const existing = state.workers[index];
+    const name = sanitizeText(req.body.name) || existing.name;
+    const department = sanitizeText(req.body.department) || existing.department;
+    const role = sanitizeText(req.body.role) || existing.role;
+    const email = String(req.body.email ?? existing.email).trim().toLowerCase();
+    if (state.workers.some((worker) => worker.id !== existing.id && worker.name.toLowerCase() === name.toLowerCase())) {
+        return res.status(409).json({ error: 'A worker with that name already exists.' });
+    }
+    if (email && state.workers.some((worker) => worker.id !== existing.id && worker.email && worker.email.toLowerCase() === email)) {
+        return res.status(409).json({ error: 'A worker with that email already exists.' });
+    }
+    if (email && req.body.password && String(req.body.password).length < 6) {
+        return res.status(400).json({ error: 'Worker password must be at least 6 characters.' });
+    }
+    state.workers[index] = {
+        ...existing,
+        name,
+        department,
+        role,
+        email,
+        passwordHash: req.body.password ? bcrypt.hashSync(String(req.body.password), 10) : existing.passwordHash
+    };
+    state.consultations = state.consultations.map((consultation) => {
+        if (consultation.assignedWorker === existing.name) {
+            return { ...consultation, assignedWorker: name };
+        }
+        return consultation;
+    });
+    await saveState();
+    res.json(state.workers[index]);
+});
+
+app.get('/api/admin/departments', authRequired, adminRequired, (_req, res) => {
+    const departments = {};
+    for (const worker of state.workers) {
+        const key = worker.department || 'Unassigned';
+        if (!departments[key]) {
+            departments[key] = { department: key, workers: [], consultationCount: 0 };
+        }
+        departments[key].workers.push({ id: worker.id, name: worker.name, role: worker.role, email: worker.email || '' });
+    }
+    for (const consultation of state.consultations) {
+        const key = consultation.assignedDepartment || 'Unassigned';
+        if (departments[key]) departments[key].consultationCount += 1;
+    }
+    res.json(Object.values(departments));
+});
+
+app.delete('/api/admin/workers/:id', authRequired, adminRequired, async (req, res) => {
     const index = state.workers.findIndex((worker) => worker.id === req.params.id);
     if (index < 0) return res.status(404).json({ error: 'Worker not found' });
     const [worker] = state.workers.splice(index, 1);
@@ -681,6 +761,24 @@ app.post('/api/register', authLimiter, async (req, res) => {
     await saveState();
     const token = createToken({ id: admin.id, email: admin.email, name: admin.name, role: admin.role });
     res.status(201).json({ ok: true, token, admin: { id: admin.id, name: admin.name, email: admin.email, role: admin.role } });
+});
+
+app.post('/api/worker/login', loginLimiter, (req, res) => {
+    const { email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ error: 'Email and password are required.' });
+    const worker = state.workers.find((item) => item.email && item.email.toLowerCase() === String(email).toLowerCase());
+    if (!worker || !worker.passwordHash) return res.status(401).json({ error: 'Invalid credentials' });
+    const valid = bcrypt.compareSync(String(password), worker.passwordHash);
+    if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
+    const token = createToken({ id: worker.id, email: worker.email, name: worker.name, role: 'worker' });
+    res.json({ ok: true, token, worker: { id: worker.id, name: worker.name, email: worker.email, department: worker.department, role: worker.role } });
+});
+
+app.get('/api/worker/me', authRequired, workerRequired, (req, res) => {
+    const worker = state.workers.find((item) => item.id === req.admin.id);
+    if (!worker) return res.status(404).json({ error: 'Worker not found' });
+    const assignments = state.consultations.filter((consultation) => consultation.assignedWorker === worker.name);
+    res.json({ worker: { id: worker.id, name: worker.name, email: worker.email, department: worker.department, role: worker.role }, assignments });
 });
 
 app.post('/api/forgot-password', authLimiter, async (req, res) => {

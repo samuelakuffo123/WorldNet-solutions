@@ -1256,3 +1256,162 @@ table.admin-table {
         grid-template-columns: 1fr;
     }
 }
+
+/* ---------- Team portal (worker) ---------- */
+.worker-app {
+    min-height: 100vh;
+    background: #f4f7fb;
+    font-family: Inter, "Segoe UI", system-ui, sans-serif;
+}
+
+.worker-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.9rem 1.5rem;
+    background: linear-gradient(135deg, #07152b 0%, #0b2b55 55%, #123a75 100%);
+    position: sticky;
+    top: 0;
+    z-index: 40;
+}
+
+.worker-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+}
+
+.worker-brand .brand-mark {
+    width: 38px;
+    height: 38px;
+    font-size: 1rem;
+}
+
+.worker-user {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+}
+
+.worker-user .avatar {
+    width: 36px;
+    height: 36px;
+    font-size: 0.75rem;
+}
+
+.worker-user .user-info strong {
+    display: block;
+    color: #fff;
+    font-size: 0.88rem;
+}
+
+.worker-user .user-info span {
+    font-size: 0.72rem;
+    color: rgba(219, 232, 255, 0.6);
+}
+
+.worker-content {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 3.5rem;
+}
+
+.worker-welcome h1 {
+    margin: 0 0 0.3rem;
+    font-size: 1.6rem;
+    letter-spacing: -0.02em;
+    color: var(--wn-slate-900);
+}
+
+.worker-welcome p {
+    margin: 0 0 1.5rem;
+    color: var(--wn-slate-500);
+}
+
+.worker-stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.worker-stats .stat-card strong {
+    font-size: 1.8rem;
+    letter-spacing: -0.03em;
+    color: var(--wn-slate-900);
+}
+
+.worker-stats .stat-card span {
+    font-size: 0.82rem;
+    color: var(--wn-slate-500);
+}
+
+/* ---------- Workers page ---------- */
+.worker-add-panel {
+    background: linear-gradient(135deg, rgba(37, 99, 235, 0.05), rgba(14, 165, 233, 0.05));
+    border: 1px solid rgba(37, 99, 235, 0.12);
+    border-radius: 1rem;
+    padding: 0.5rem 0.9rem;
+}
+
+.worker-add-panel summary {
+    padding: 0.4rem 0;
+    color: var(--wn-blue);
+}
+
+.assignments-row td {
+    background: #f8fafc;
+}
+
+.worker-assignments {
+    display: grid;
+    gap: 0.6rem;
+}
+
+.assignment-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    background: #fff;
+    border: 1px solid var(--wn-border);
+    border-radius: 0.8rem;
+    padding: 0.6rem 0.9rem;
+    font-size: 0.84rem;
+}
+
+/* ---------- Departments page ---------- */
+.dept-stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.dept-stats .stat-card strong {
+    font-size: 1.6rem;
+    letter-spacing: -0.03em;
+    color: var(--wn-slate-900);
+}
+
+.dept-stats .stat-card span {
+    font-size: 0.82rem;
+    color: var(--wn-slate-500);
+}
+
+.dept-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.2rem;
+}
+
+.dept-card .dept-roster {
+    display: grid;
+    gap: 0.6rem;
+}
+
+.dept-card .roster-card {
+    margin: 0;
+}

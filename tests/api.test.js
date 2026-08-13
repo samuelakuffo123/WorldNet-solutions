@@ -523,3 +523,145 @@ test('admin can create portfolio items and manage soft-deleted services', async 
         await cleanup();
     }
 });
+
+test('workers can sign in and view only their own assignments', async () => {
+    const { baseUrl, cleanup } = await startTestServer();
+    try {
+        const adminLogin = await fetch(`${baseUrl}/api/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: 'admin@worldnetict.com', password: 'admin123' })
+        });
+        const { token } = await adminLogin.json();
+        const adminHeaders = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
+
+        const workers = await (await fetch(`${baseUrl}/api/admin/workers`, { headers: adminHeaders })).json();
+        const target = workers[0];
+
+        const consultationResponse = await fetch(`${baseUrl}/api/consultations`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name: 'Selina',
+                company: 'Coastline',
+                email: 'selina-worker@example.com',
+                phone: '+233200000012',
+                preferred_date: '2026-08-15',
+                preferred_time: '10:00'
+            })
+        });
+        const consultationBody = await consultationResponse.json();
+
+        await fetch(`${baseUrl}/api/consultations/${consultationBody.consultation.id}`, {
+            method: 'PUT',
+            headers: adminHeaders,
+            body: JSON.stringify({ assignedDepartment: target.department, assignedWorker: target.name })
+        });
+
+        const loginResponse = await fetch(`${baseUrl}/api/worker/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: target.email, password: 'worker123' })
+        });
+        assert.equal(loginResponse.status, 200);
+        const loginBody = await loginResponse.json();
+        assert.ok(loginBody.token);
+        assert.equal(loginBody.worker.name, target.name);
+
+        const meResponse = await fetch(`${baseUrl}/api/worker/me`, {
+            headers: { Authorization: `Bearer ${loginBody.token}` }
+        });
+        assert.equal(meResponse.status, 200);
+        const meBody = await meResponse.json();
+        assert.equal(meBody.worker.id, target.id);
+        assert.equal(meBody.worker.name, target.name);
+        assert.ok(meBody.assignments.some((item) => item.id === consultationBody.consultation.id));
+
+        const wrongPassword = await fetch(`${baseUrl}/api/worker/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: target.email, password: 'wrong-password' })
+        });
+        assert.equal(wrongPassword.status, 401);
+
+        const workerHitsAdmin = await fetch(`${baseUrl}/api/admin/workers`, {
+            headers: { Authorization: `Bearer ${loginBody.token}` }
+        });
+        assert.equal(workerHitsAdmin.status, 403);
+    } finally {
+        await cleanup();
+    }
+});
+
+test('admin can create a worker with credentials and update their department and role', async () => {
+    const { baseUrl, cleanup } = await startTestServer();
+    try {
+        const adminLogin = await fetch(`${baseUrl}/api/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: 'admin@worldnetict.com', password: 'admin123' })
+        });
+        const { token } = await adminLogin.json();
+        const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
+
+        const createResponse = await fetch(`${baseUrl}/api/admin/workers`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ name: 'Efua Dadzie', department: 'Security', role: 'Penetration Tester', email: 'efua.dadzie@worldnetict.com', password: 'secure123' })
+        });
+        assert.equal(createResponse.status, 201);
+        const worker = await createResponse.json();
+        assert.equal(worker.email, 'efua.dadzie@worldnetict.com');
+
+        const shortPassword = await fetch(`${baseUrl}/api/admin/workers`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ name: 'Too Short', department: 'Security', role: 'Analyst', email: 'short@worldnetict.com', password: '123' })
+        });
+        assert.equal(shortPassword.status, 400);
+
+        const updateResponse = await fetch(`${baseUrl}/api/admin/workers/${worker.id}`, {
+            method: 'PUT',
+            headers,
+            body: JSON.stringify({ department: 'Infrastructure', role: 'Network Engineer' })
+        });
+        assert.equal(updateResponse.status, 200);
+        const updated = await updateResponse.json();
+        assert.equal(updated.department, 'Infrastructure');
+        assert.equal(updated.role, 'Network Engineer');
+
+        const workerLogin = await fetch(`${baseUrl}/api/worker/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: 'efua.dadzie@worldnetict.com', password: 'secure123' })
+        });
+        assert.equal(workerLogin.status, 200);
+    } finally {
+        await cleanup();
+    }
+});
+
+test('departments endpoint groups workers by department with their roles', async () => {
+    const { baseUrl, cleanup } = await startTestServer();
+    try {
+        const adminLogin = await fetch(`${baseUrl}/api/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: 'admin@worldnetict.com', password: 'admin123' })
+        });
+        const { token } = await adminLogin.json();
+        const headers = { Authorization: `Bearer ${token}` };
+
+        const departmentsResponse = await fetch(`${baseUrl}/api/admin/departments`, { headers });
+        assert.equal(departmentsResponse.status, 200);
+        const departments = await departmentsResponse.json();
+        assert.ok(departments.some((department) => department.department === 'Infrastructure'));
+        const infrastructure = departments.find((department) => department.department === 'Infrastructure');
+        assert.ok(infrastructure.workers.some((worker) => worker.name === 'Ama Boateng' && worker.role === 'Network Engineer'));
+
+        const unauthenticated = await fetch(`${baseUrl}/api/admin/departments`);
+        assert.equal(unauthenticated.status, 401);
+    } finally {
+        await cleanup();
+    }
+});
