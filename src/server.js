@@ -28,14 +28,14 @@ const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 12, standardHeade
 const initialServices = [
     {
         id: 'svc-001',
-        name: 'Enterprise Networking',
-        slug: 'enterprise-networking',
+        name: 'Network Infrastructure Design & Cabling',
+        slug: 'network-infrastructure-cabling',
         category: 'Infrastructure',
-        summary: 'Resilient LAN/WAN architecture with structured cabling and zero-downtime design.',
-        description: 'We design, deploy, and support high-availability network infrastructure for banks, ministries, hospitals, and large campuses.',
+        summary: 'Structured cabling (UTP, STP, Fiber), LAN/WAN design, and network deployment for enterprises and campuses.',
+        description: 'We design and install network infrastructure end-to-end — structured cabling in UTP, STP and fiber, LAN and WAN networks over radio and fiber, and the full routing, switching and firewall layers. Our teams have delivered networks for institutions that include GCB, AngloGold Ashanti, Ghana Telecom (now Vodafone), SSNIT, VRA, Ecobank, Tullow Ghana and the Council of State.',
         icon: 'waypoints',
-        features: ['LAN/WAN design', 'Structured cabling', 'Redundant switching'],
-        deliverables: 'Network assessment, deployment plan, phased migration, SLA support',
+        features: ['Structured cabling (UTP, STP, Fiber)', 'LAN / WAN design and implementation', 'Routing, switching & firewall', 'Campus and building backbone upgrades'],
+        deliverables: 'Network assessment, cabling plan, phased migration plan, testing report, handover documentation',
         priceRange: 'Custom quote'
     },
     {
@@ -43,35 +43,83 @@ const initialServices = [
         name: 'Fiber Optic Installation',
         slug: 'fiber-optic-installation',
         category: 'Connectivity',
-        summary: 'Campus and metro fiber deployment with certified termination and testing.',
-        description: 'Our certified field engineers deliver end-to-end fiber splicing, testing, and documentation for reliable long-haul connectivity.',
+        summary: 'Fiber backbone design, installation, splicing and testing, from campuses to long-haul corridors.',
+        description: 'We deliver campus and long-haul fiber — backbone link design, splicing, termination and certification. WorldNet has worked on corridor-scale projects including the Eastern Corridor Fiber Optic Project from Accra to Bawku and backbone links for KNUST Sunyani campus, with links taking internet backbones from 8Mbps on copper to 45Mbps on fiber.',
         icon: 'cable',
-        features: ['Splicing', 'OTDR testing', 'Campus backbone'],
-        deliverables: 'Site survey, fiber design, testing report, maintenance plan',
+        features: ['Fiber backbone design & installation', 'Splicing, termination & testing', 'WiMAX and radio network deployment', 'Backbone capacity upgrades'],
+        deliverables: 'Site survey, fiber design, splicing & test report, maintenance plan',
         priceRange: 'Custom quote'
     },
     {
         id: 'svc-003',
-        name: 'Cybersecurity',
+        name: 'Cybersecurity & Systems Security',
         slug: 'cybersecurity',
         category: 'Security',
-        summary: 'Threat monitoring, penetration testing, and compliance-ready frameworks.',
-        description: 'We deliver proactive security operations, vulnerability assessments, and incident response strategies.',
+        summary: 'Systems security, anti-virus support, physical security and surveillance to protect business operations.',
+        description: 'We secure networks and systems — security audits, anti-virus support, firewalls and VPNs, and physical security & surveillance. Our engineers have configured SonicWall, Cyberoam and Smoothwall firewalls and secured environments ranging from financial systems to government networks.',
         icon: 'shield-check',
-        features: ['SOC monitoring', 'Pen tests', 'Compliance support'],
-        deliverables: 'Security audit, remediation roadmap, SOC onboarding',
+        features: ['Security audits & assessments', 'Firewall and VPN configuration', 'Anti-virus and endpoint support', 'Physical security & surveillance'],
+        deliverables: 'Security audit, hardening plan, firewall/VPN configuration, support coverage',
         priceRange: 'Custom quote'
     },
     {
         id: 'svc-004',
-        name: 'Cloud Solutions',
-        slug: 'cloud-solutions',
-        category: 'Cloud',
-        summary: 'Hybrid and multi-cloud migration, architecture, and cost optimization.',
-        description: 'Move critical workloads to Azure or AWS with a secure architecture and a clear modernization roadmap.',
-        icon: 'cloud',
-        features: ['Azure/AWS architecture', 'Migration plan', 'Cost optimization'],
-        deliverables: 'Cloud readiness assessment, migration plan, post-go-live support',
+        name: 'Data Centre & Power Systems',
+        slug: 'data-centre-power',
+        category: 'Cloud & Data Centre',
+        summary: 'Design and implementation of tiered data centres, electrical power systems and NOC support.',
+        description: 'We design and implement tiered data centres, electrical power systems design & installation, and NOC/data centre support services. The WorldNet group includes EPN Ltd (power systems specialists) and delivers power protection support, UPS repairs and managed server environments for financial institutions.',
+        icon: 'server',
+        features: ['Tiered data centre design & implementation', 'Electrical power systems design & installation', 'NOC / data centre support', 'Power protection & UPS support'],
+        deliverables: 'Data centre design, power plan, implementation, NOC support services',
+        priceRange: 'Custom quote'
+    },
+    {
+        id: 'svc-005',
+        name: 'Managed Support & Maintenance Contracts',
+        slug: 'managed-support-maintenance',
+        category: 'Managed Services',
+        summary: 'Servicing and maintenance contracts, field and onsite engineering, remote support and repairs.',
+        description: 'We provide onsite and field engineering services, remote support, servicing and maintenance contracts for computers and peripherals — including printer, monitor and UPS repairs. Day-to-day system support and trouble-shooting cover desktops, laptops, servers and networks.',
+        icon: 'wrench',
+        features: ['Servicing & maintenance contracts', 'Field and onsite engineering services', 'Remote support services', 'Printer, monitor & UPS repairs'],
+        deliverables: 'Support contract, SLAs, maintenance schedule, repairs & parts coverage',
+        priceRange: 'Custom quote'
+    },
+    {
+        id: 'svc-006',
+        name: 'Software Engineering',
+        slug: 'software-engineering',
+        category: 'Software Engineering',
+        summary: 'In-house development of banking, government and business applications with ongoing support.',
+        description: 'We build custom applications — from SmartBank branch banking software and loan tracking systems to the Government of Ghana Index Linked Bond (GGILB) software and securities systems for the Securities and Exchange Commission. We support SQL Server, MySQL and Oracle platforms.',
+        icon: 'code',
+        features: ['Custom application development', 'Banking & financial software', 'Government & securities systems', 'SQL Server, MySQL, Oracle support'],
+        deliverables: 'Requirements analysis, software design, development, testing, training, support',
+        priceRange: 'Custom quote'
+    },
+    {
+        id: 'svc-007',
+        name: 'Web Design, Hosting & Training',
+        slug: 'web-hosting-training',
+        category: 'Training & Web',
+        summary: 'Web page design, domain registration, hosting and corporate ICT training packages.',
+        description: 'We design and host websites, register domains, and deliver ICT training — from introductory computing and Microsoft Office to operating systems, networking and professional certification paths (MCP, MCSE, MCSE/MCSA, ethical hacking and network security). Special training packages are available for teachers and students.',
+        icon: 'graduation-cap',
+        features: ['Web page design & domain registration', 'Hosting services', 'Corporate & institutional ICT training', 'Professional certification paths'],
+        deliverables: 'Website design, hosting setup, training curriculum & delivery',
+        priceRange: 'Custom quote'
+    },
+    {
+        id: 'svc-008',
+        name: 'VPN, Video Conferencing & Bandwidth',
+        slug: 'vpn-video-bandwidth',
+        category: 'Connectivity',
+        summary: 'VPN connectivity, video conferencing, bandwidth monitoring and dedicated internet access.',
+        description: 'We implement VPNs using appliances such as SonicWall and Cisco, set up video conferencing in fixed and hospitality environments, and provide bandwidth monitoring & management, converged voice/data/video and dedicated internet access for businesses.',
+        icon: 'network',
+        features: ['VPN implementation (SonicWall, Cisco)', 'Video conferencing setup', 'Bandwidth monitoring & management', 'Dedicated internet access (DIA)'],
+        deliverables: 'Network design, VPN & conferencing deployment, bandwidth reporting',
         priceRange: 'Custom quote'
     }
 ];
@@ -79,19 +127,51 @@ const initialServices = [
 const initialPortfolio = [
     {
         id: 'pf-001',
-        title: 'Core Banking Network Overhaul',
-        client: 'Meridian Bank',
-        category: 'Banking & Finance',
-        description: 'Upgraded the bank-wide network with redundant switching and fiber backbones across 12 branches.',
-        outcome: '60% lower latency and stronger resilience.'
+        title: 'BusyInternet / ZipNet ISP — Network Redesign & Deployment',
+        client: 'BusyInternet / Broadband Home Ltd',
+        category: 'Telecommunications',
+        description: 'Designed, installed and integrated IP networks; managed RF, NOC and project units; redesigned and upgraded the WiMAX network with high-performance Cisco routers and switches; deployed Alvarion WiMAX, billing server and public Wi-Fi hotspots, achieving near-ubiquitous coverage across Accra-Tema, Kumasi and Takoradi.',
+        outcome: 'Internet backbone scaled from 8 Mbps on copper to 45 Mbps on fiber.'
     },
     {
         id: 'pf-002',
-        title: 'Ministry SOC & Threat Monitoring',
-        client: 'Government Agency',
+        title: 'GHL Bank / FNB Ghana — Core Network & Systems Automation',
+        client: 'Ghana Home Loans / GHL Bank / FNB Ghana',
+        category: 'Banking & Finance',
+        description: 'Systems analysis and design of the core network topology, end-to-end implementation and configuration of branch-to-HQ and branch-to-branch connectivity, ATM connectivity, datacenter infrastructure (VM, servers, power), and print services support. Prior support covered racks, Windows servers, databases, firewall appliances (Smoothwall, Cyberoam) and Google Business Mail.',
+        outcome: 'End-to-end bank network and systems automation delivered and supported.'
+    },
+    {
+        id: 'pf-003',
+        title: 'Bankswitch Ghana — Secure Document Management for Customs',
+        client: 'Bankswitch Ghana Ltd (CEPS)',
         category: 'Government',
-        description: 'Built a 24/7 security operations capability with real-time alerting and playbooks.',
-        outcome: 'Zero breaches in 18 months.'
+        description: 'Managed the design and deployment of the core network and all operational sites for the Ghana Customs Secure Document Management System, integrating CEPS, shipping lines and clearing agents. Managed clustered servers, SAN, Cisco routers, switches and ASAs, plus IT system audits across power, connectivity, backup compliance and disaster recovery.',
+        outcome: 'National secure document management platform integrated across all stakeholders.'
+    },
+    {
+        id: 'pf-004',
+        title: 'eCard Debit Card Platform',
+        client: 'DartCom Ltd',
+        category: 'Banking & Finance',
+        description: 'Managed multiple vendors to deploy a complex network of UHF base stations, Frame Relay backhaul, ATM WAN and debit card switch integration for Ecobank, Cal Bank, TTB and Bank of Ghana onto the eCard platform, including point-of-sale terminal deployment.',
+        outcome: 'Multi-bank debit card switch integration delivered on the eCard platform.'
+    },
+    {
+        id: 'pf-005',
+        title: 'Eastern Corridor Fiber Optic Project',
+        client: 'Alcatel-Lucent',
+        category: 'Telecommunications',
+        description: 'Served as in-country consultant to Alcatel-Lucent on the Eastern Corridor Fiber Optic Project spanning from Accra all the way to Bawku in the Upper East Region of Ghana.',
+        outcome: 'Long-haul fiber corridor connecting the Eastern Corridor of Ghana.'
+    },
+    {
+        id: 'pf-006',
+        title: 'Corporate ICT Training & Civil Society Support',
+        client: 'World Food Programme, UN, Council of State',
+        category: 'Training & Support',
+        description: 'Corporate training on ICT for the World Food Programme and the United Nations System Gender Programme, plus resident engineering services, systems support, software installations and mail server configuration for institutions including the Council of State and the Non-Formal Education Division.',
+        outcome: 'Regarded as a leading provider of resident ICT support and corporate training in Ghana.'
     }
 ];
 
@@ -117,8 +197,8 @@ const initialData = {
     ],
     settings: {
         companyName: 'WorldNet ICT Solutions',
-        contactEmail: 'hello@worldnetict.com',
-        contactPhone: '+233 20 000 0000'
+        contactEmail: 'info@worldnetictsolutions.com',
+        contactPhone: '+233 55 344 6842'
     }
 };
 
