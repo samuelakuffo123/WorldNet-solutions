@@ -354,7 +354,7 @@ function setupScrollReveal() {
     sections.forEach((items) => {
         items.forEach((item, index) => {
             item.style.transitionDelay = `${index * 90}ms`;
-            item.style.transitionDuration = '520ms';
+            item.style.transitionDuration = '640ms';
         });
     });
 
@@ -363,6 +363,11 @@ function setupScrollReveal() {
             if (entry.isIntersecting) {
                 entry.target.classList.add('is-visible');
                 observer.unobserve(entry.target);
+                setTimeout(() => {
+                    entry.target.classList.remove('reveal', 'is-visible');
+                    entry.target.style.transitionDelay = '';
+                    entry.target.style.transitionDuration = '';
+                }, 780);
             }
         });
     }, { threshold: 0.14 });
