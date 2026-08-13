@@ -1,0 +1,37 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: worldnet
+      POSTGRES_PASSWORD: worldnet
+      POSTGRES_DB: worldnet
+    volumes:
+      - worldnet_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U worldnet -d worldnet"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://worldnet:worldnet@db:5432/worldnet
+      DATABASE_SSL: "false"
+      JWT_SECRET: change-me-in-production
+      SMTP_HOST: ""
+      SMTP_PORT: "587"
+      SMTP_USER: ""
+      SMTP_PASS: ""
+      SMTP_FROM: no-reply@worldnetict.com
+    ports:
+      - "3000:3000"
+
+volumes:
+  worldnet_db:

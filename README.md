@@ -63,6 +63,13 @@ That will display the WorldNet homepage.
 - `npm start` – run the website
 - `npm test` – run the regression suite for API and admin flows
 
+## Deployment
+
+The app is deployment-ready for **Render** (blueprint in `render.yaml`) and
+**Docker Compose** (`docker-compose.yml`). Follow the step-by-step guide in
+[`deployment/README.md`](deployment/README.md) to deploy to either platform,
+and configure the required environment variables before going live.
+
 ## Sprint 3 handover notes
 
 - The admin dashboard is available at `/admin/login.html` and uses the default credentials `admin@worldnetict.com` / `admin123`.
