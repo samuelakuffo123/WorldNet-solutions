@@ -1,0 +1,6 @@
+# LECTURER ACTION REQUIRED:
+# Replace @YourGitHubUsername with the lecturer's GitHub username before using this template.
+# These paths protect the assessment infrastructure from being weakened by teams.
+
+/.github/workflows/ @MarkKMensah
+/Makefile @MarkKMensah

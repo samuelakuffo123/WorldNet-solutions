@@ -1,0 +1,24 @@
+name: DCIT208 Standard CI Gateway
+
+on:
+  push:
+    branches: ["main", "feature/**", "fix/**", "docs/**", "test/**"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Execute setup contract
+        run: make setup
+
+      - name: Enforce linting/static checks
+        run: make lint
+
+      - name: Run automated test suite
+        run: make test

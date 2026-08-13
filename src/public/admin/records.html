@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin Records | WorldNet</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+</head>
+
+<body>
+    <header style="background:white">
+        <div class="container" style="display:flex; justify-content:space-between; align-items:center; padding:1rem 0">
+            <h2 style="margin:0">WorldNet Admin</h2>
+            <div style="display:flex; gap:0.7rem; flex-wrap:wrap">
+                <a class="btn btn-secondary" href="/admin/dashboard.html">Back to dashboard</a>
+                <button id="logout-btn" class="btn btn-secondary">Logout</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="section">
+        <div class="container">
+            <div class="card" style="padding:1rem; margin-bottom:1rem">
+                <h2 id="records-heading" style="margin:0 0 0.35rem">Detailed records</h2>
+                <p id="records-subtitle" class="muted" style="margin:0">Full records with detailed information for admin
+                    review.</p>
+            </div>
+            <div id="records-content"></div>
+        </div>
+    </main>
+
+    <div id="toast" class="toast"></div>
+    <script src="/js/admin.js"></script>
+</body>
+
+</html>

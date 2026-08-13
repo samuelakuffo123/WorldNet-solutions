@@ -1,0 +1,1160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WorldNet ICT Solutions — Enterprise IT, Networking & Cybersecurity</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#0F172A;
+    --blue:#1D4ED8;
+    --cyan:#06B6D4;
+    --green:#22C55E;
+    --bg:#F8FAFC;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{font-family:'Inter',sans-serif; background:var(--bg); color:var(--navy); -webkit-font-smoothing:antialiased;}
+  .font-display{font-family:'Manrope',sans-serif;}
+  .font-num{font-family:'Poppins',sans-serif;}
+  ::selection{background:var(--cyan); color:#fff;}
+
+  a:focus-visible, button:focus-visible{outline:2px solid var(--cyan); outline-offset:2px; border-radius:6px;}
+
+  .grid-bg{
+    background-image:
+      linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
+    background-size:40px 40px;
+  }
+
+  .glass{
+    background:rgba(255,255,255,0.06);
+    backdrop-filter:blur(20px);
+    -webkit-backdrop-filter:blur(20px);
+    border:1px solid rgba(255,255,255,0.12);
+  }
+
+  @keyframes fadeUp{
+    from{opacity:0; transform:translateY(16px);}
+    to{opacity:1; transform:translateY(0);}
+  }
+  .fade-up{animation:fadeUp .7s cubic-bezier(.22,1,.36,1) both;}
+  .fade-up-1{animation-delay:.05s;}
+  .fade-up-2{animation-delay:.15s;}
+  .fade-up-3{animation-delay:.25s;}
+  .fade-up-4{animation-delay:.35s;}
+
+  .reveal{opacity:0; transform:translateY(20px); transition:opacity .7s cubic-bezier(.22,1,.36,1), transform .7s cubic-bezier(.22,1,.36,1);}
+  .reveal.in{opacity:1; transform:translateY(0);}
+
+  .card-hover{transition:transform .35s cubic-bezier(.22,1,.36,1), box-shadow .35s ease, border-color .35s ease;}
+  .card-hover:hover{transform:translateY(-6px); box-shadow:0 20px 40px -12px rgba(15,23,42,0.15); border-color:rgba(29,78,216,0.3);}
+
+  .pulse-dot{animation:pulseDot 2.4s ease-in-out infinite;}
+  @keyframes pulseDot{
+    0%,100%{opacity:.4; transform:scale(1);}
+    50%{opacity:1; transform:scale(1.3);}
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .fade-up, .reveal, .pulse-dot, .card-hover{animation:none !important; transition:none !important;}
+    .reveal{opacity:1; transform:none;}
+  }
+
+  .nav-link{position:relative;}
+  .nav-link::after{
+    content:''; position:absolute; left:0; bottom:-4px; width:0; height:2px; background:var(--cyan);
+    transition:width .25s ease;
+  }
+  .nav-link:hover::after{width:100%;}
+
+  .marquee-track{
+    display:flex; gap:4rem; width:max-content;
+    animation:marquee 28s linear infinite;
+  }
+  @keyframes marquee{
+    from{transform:translateX(0);}
+    to{transform:translateX(-50%);}
+  }
+
+  .stat-line{
+    stroke-dasharray:1;
+    stroke-dashoffset:1;
+    animation:draw 1.6s ease forwards;
+  }
+</style>
+</head>
+<body class="antialiased">
+
+<!-- ================= NAV ================= -->
+<header id="nav" class="fixed top-0 left-0 right-0 z-50 transition-all duration-300" style="background:rgba(15,23,42,0); border-bottom:1px solid transparent;">
+  <div class="max-w-7xl mx-auto px-6 lg:px-8 flex items-center justify-between h-20">
+    <a href="#" class="flex items-center gap-2.5">
+      <div class="w-9 h-9 rounded-lg flex items-center justify-center" style="background:linear-gradient(135deg, var(--blue), var(--cyan));">
+        <i data-lucide="network" class="w-5 h-5 text-white"></i>
+      </div>
+      <span class="font-num font-semibold text-lg tracking-tight text-white nav-wordmark">WorldNet <span class="font-normal opacity-70">ICT</span></span>
+    </a>
+
+    <nav class="hidden lg:flex items-center gap-9 text-[14.5px] font-medium">
+      <a href="#" class="nav-link text-white/90 hover:text-white">Home</a>
+      <a href="#" class="nav-link text-white/90 hover:text-white">About</a>
+      <a href="#services" class="nav-link text-white/90 hover:text-white">Services</a>
+      <a href="#projects" class="nav-link text-white/90 hover:text-white">Portfolio</a>
+      <a href="#" class="nav-link text-white/90 hover:text-white">Industries</a>
+      <a href="#" class="nav-link text-white/90 hover:text-white">FAQ</a>
+      <a href="#" class="nav-link text-white/90 hover:text-white">Contact</a>
+    </nav>
+
+    <div class="hidden lg:flex items-center gap-3">
+      <a href="#" class="text-white/90 hover:text-white text-[14.5px] font-medium px-4 py-2.5">Client Login</a>
+      <button type="button" data-open-consultation class="text-[14.5px] font-semibold px-5 py-2.5 rounded-lg text-white transition-transform hover:scale-[1.03]" style="background:var(--blue);">Book Consultation</button>
+    </div>
+
+    <button class="lg:hidden text-white" aria-label="Open menu">
+      <i data-lucide="menu" class="w-6 h-6"></i>
+    </button>
+  </div>
+</header>
+
+<script>
+  const nav = document.getElementById('nav');
+  const wordmark = document.querySelector('.nav-wordmark');
+  window.addEventListener('scroll', () => {
+    if(window.scrollY > 40){
+      nav.style.background = 'rgba(15,23,42,0.92)';
+      nav.style.backdropFilter = 'blur(16px)';
+      nav.style.borderBottom = '1px solid rgba(255,255,255,0.08)';
+    } else {
+      nav.style.background = 'rgba(15,23,42,0)';
+      nav.style.backdropFilter = 'none';
+      nav.style.borderBottom = '1px solid transparent';
+    }
+  });
+</script>
+
+<!-- ================= HERO ================= -->
+<section class="relative overflow-hidden" style="background:radial-gradient(120% 100% at 15% 0%, #16213E 0%, #0F172A 55%, #0B1220 100%);">
+  <div class="absolute inset-0 grid-bg opacity-60"></div>
+
+  <!-- animated topology svg -->
+  <svg class="absolute inset-0 w-full h-full opacity-70" viewBox="0 0 1400 900" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+    <g stroke="rgba(6,182,212,0.35)" stroke-width="1.2" fill="none">
+      <line x1="120" y1="150" x2="420" y2="260"/>
+      <line x1="420" y1="260" x2="760" y2="180"/>
+      <line x1="420" y1="260" x2="380" y2="560"/>
+      <line x1="760" y1="180" x2="1080" y2="240"/>
+      <line x1="1080" y1="240" x2="1300" y2="140"/>
+      <line x1="380" y1="560" x2="700" y2="640"/>
+      <line x1="700" y1="640" x2="1020" y2="580"/>
+      <line x1="1020" y1="580" x2="1240" y2="700"/>
+      <line x1="760" y1="180" x2="700" y2="640"/>
+    </g>
+    <g fill="#06B6D4">
+      <circle cx="120" cy="150" r="3.5"/>
+      <circle cx="420" cy="260" r="4.5"/>
+      <circle cx="760" cy="180" r="3.5"/>
+      <circle cx="1080" cy="240" r="3.5"/>
+      <circle cx="1300" cy="140" r="3"/>
+      <circle cx="380" cy="560" r="4"/>
+      <circle cx="700" cy="640" r="4.5"/>
+      <circle cx="1020" cy="580" r="3.5"/>
+      <circle cx="1240" cy="700" r="3"/>
+    </g>
+    <g fill="#22C55E" opacity="0.9">
+      <circle cx="420" cy="260" r="7" class="pulse-dot"/>
+      <circle cx="700" cy="640" r="7" class="pulse-dot" style="animation-delay:1s;"/>
+    </g>
+  </svg>
+
+  <div class="relative max-w-7xl mx-auto px-6 lg:px-8 pt-40 pb-28 lg:pt-48 lg:pb-36">
+    <div class="max-w-3xl">
+      <div class="fade-up inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold tracking-wide text-cyan-300 mb-7" style="background:rgba(6,182,212,0.1); border:1px solid rgba(6,182,212,0.25);">
+        <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 pulse-dot"></span>
+        TRUSTED BY 200+ ENTERPRISES ACROSS WEST AFRICA
+      </div>
+
+      <h1 class="fade-up fade-up-1 font-display font-extrabold text-white leading-[1.05] text-4xl sm:text-5xl lg:text-6xl tracking-tight">
+        Enterprise IT infrastructure, <span style="background:linear-gradient(90deg,#38BDF8,#06B6D4); -webkit-background-clip:text; background-clip:text; color:transparent;">built to stay up.</span>
+      </h1>
+
+      <p class="fade-up fade-up-2 mt-6 text-lg text-slate-300 leading-relaxed max-w-xl">
+        WorldNet ICT Solutions designs, deploys, and secures the networks, servers, and cloud systems that banks, government institutions, and enterprises run on — end to end, with SLA-backed support.
+      </p>
+
+      <div class="fade-up fade-up-3 mt-9 flex flex-col sm:flex-row gap-4">
+        <button type="button" data-open-consultation class="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl font-semibold text-white transition-transform hover:scale-[1.03]" style="background:var(--blue); box-shadow:0 8px 30px -6px rgba(29,78,216,0.6);">
+          Book a Consultation <i data-lucide="arrow-right" class="w-4 h-4"></i>
+        </button>
+        <a href="#services" class="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl font-semibold text-white glass hover:bg-white/10 transition-colors">
+          Explore Services
+        </a>
+      </div>
+
+      <div class="fade-up fade-up-4 mt-14 grid grid-cols-3 max-w-lg gap-6 pt-8 border-t border-white/10">
+        <div>
+          <div class="font-num text-2xl font-semibold text-white">14+</div>
+          <div class="text-xs text-slate-400 mt-1">Years in operation</div>
+        </div>
+        <div>
+          <div class="font-num text-2xl font-semibold text-white">99.98%</div>
+          <div class="text-xs text-slate-400 mt-1">Avg. network uptime</div>
+        </div>
+        <div>
+          <div class="font-num text-2xl font-semibold text-white">24/7</div>
+          <div class="text-xs text-slate-400 mt-1">NOC monitoring</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- glass floating status card, desktop only -->
+  <div class="hidden xl:block absolute right-16 top-[38%] w-80 glass rounded-2xl p-5 fade-up fade-up-4">
+    <div class="flex items-center justify-between mb-4">
+      <span class="text-xs font-semibold text-slate-300 tracking-wide">NETWORK OPERATIONS CENTER</span>
+      <span class="flex items-center gap-1.5 text-xs font-medium text-green-400">
+        <span class="w-1.5 h-1.5 rounded-full bg-green-400"></span> Live
+      </span>
+    </div>
+    <div class="space-y-3">
+      <div class="flex items-center justify-between text-sm">
+        <span class="text-slate-300">Core switching</span>
+        <span class="text-green-400 font-medium">Operational</span>
+      </div>
+      <div class="flex items-center justify-between text-sm">
+        <span class="text-slate-300">Fiber backbone</span>
+        <span class="text-green-400 font-medium">Operational</span>
+      </div>
+      <div class="flex items-center justify-between text-sm">
+        <span class="text-slate-300">Cloud gateway</span>
+        <span class="text-green-400 font-medium">Operational</span>
+      </div>
+      <div class="flex items-center justify-between text-sm">
+        <span class="text-slate-300">Threat detection</span>
+        <span class="text-cyan-400 font-medium">Scanning</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= TRUSTED LOGOS ================= -->
+<section class="py-14 bg-white border-b border-slate-100 overflow-hidden">
+  <div class="max-w-7xl mx-auto px-6 lg:px-8">
+    <p class="text-center text-xs font-semibold tracking-widest text-slate-400 mb-8">TRUSTED BY LEADING BANKS, GOVERNMENT AGENCIES & ENTERPRISES</p>
+  </div>
+  <div class="relative">
+    <div class="marquee-track items-center">
+      <span class="text-2xl font-display font-bold text-slate-300">Zenith&nbsp;Capital</span>
+      <span class="text-2xl font-display font-bold text-slate-300">Meridian&nbsp;Bank</span>
+      <span class="text-2xl font-display font-bold text-slate-300">Accra&nbsp;Ports&nbsp;Authority</span>
+      <span class="text-2xl font-display font-bold text-slate-300">NovaHealth</span>
+      <span class="text-2xl font-display font-bold text-slate-300">Continental&nbsp;University</span>
+      <span class="text-2xl font-display font-bold text-slate-300">Gridline&nbsp;Energy</span>
+      <span class="text-2xl font-display font-bold text-slate-300">Zenith&nbsp;Capital</span>
+      <span class="text-2xl font-display font-bold text-slate-300">Meridian&nbsp;Bank</span>
+      <span class="text-2xl font-display font-bold text-slate-300">Accra&nbsp;Ports&nbsp;Authority</span>
+      <span class="text-2xl font-display font-bold text-slate-300">NovaHealth</span>
+      <span class="text-2xl font-display font-bold text-slate-300">Continental&nbsp;University</span>
+      <span class="text-2xl font-display font-bold text-slate-300">Gridline&nbsp;Energy</span>
+    </div>
+  </div>
+</section>
+
+<!-- ================= SERVICES OVERVIEW ================= -->
+<section id="services" class="py-28 bg-[var(--bg)]">
+  <div class="max-w-7xl mx-auto px-6 lg:px-8">
+    <div class="reveal flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6 mb-16">
+      <div class="max-w-xl">
+        <span class="text-xs font-semibold tracking-widest text-blue-700">WHAT WE DO</span>
+        <h2 class="font-display font-extrabold text-3xl sm:text-4xl mt-3 tracking-tight text-[var(--navy)]">Full-stack IT infrastructure, under one contract.</h2>
+      </div>
+      <p class="text-slate-500 max-w-md leading-relaxed">From the fiber in the ground to the firewall at the edge, we design, install, and support every layer — so your organization deals with one accountable partner, not seven vendors.</p>
+    </div>
+
+    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <!-- card template x7 -->
+      <div class="reveal card-hover bg-white rounded-2xl p-7 border border-slate-100">
+        <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-6" style="background:rgba(29,78,216,0.08);">
+          <i data-lucide="waypoints" class="w-6 h-6" style="color:var(--blue);"></i>
+        </div>
+        <h3 class="font-display font-bold text-lg text-[var(--navy)]">Enterprise Networking</h3>
+        <p class="text-sm text-slate-500 mt-3 leading-relaxed">Resilient LAN/WAN architecture, structured cabling, and switching designed for zero-downtime operations.</p>
+        <button type="button" data-open-inquiry data-service="Enterprise Networking" class="inline-flex items-center gap-1.5 mt-6 text-sm font-semibold text-blue-700 hover:gap-2.5 transition-all">Request Service <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i></button>
+      </div>
+
+      <div class="reveal card-hover bg-white rounded-2xl p-7 border border-slate-100">
+        <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-6" style="background:rgba(6,182,212,0.1);">
+          <i data-lucide="cable" class="w-6 h-6" style="color:var(--cyan);"></i>
+        </div>
+        <h3 class="font-display font-bold text-lg text-[var(--navy)]">Fiber Optic Installation</h3>
+        <p class="text-sm text-slate-500 mt-3 leading-relaxed">Campus and metro fiber deployment with certified termination, splicing, and OTDR-verified performance.</p>
+        <button type="button" data-open-inquiry data-service="Fiber Optic Installation" class="inline-flex items-center gap-1.5 mt-6 text-sm font-semibold text-blue-700 hover:gap-2.5 transition-all">Request Service <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i></button>
+      </div>
+
+      <div class="reveal card-hover bg-white rounded-2xl p-7 border border-slate-100">
+        <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-6" style="background:rgba(15,23,42,0.06);">
+          <i data-lucide="shield-check" class="w-6 h-6" style="color:var(--navy);"></i>
+        </div>
+        <h3 class="font-display font-bold text-lg text-[var(--navy)]">Cybersecurity</h3>
+        <p class="text-sm text-slate-500 mt-3 leading-relaxed">Threat monitoring, penetration testing, and compliance-ready security frameworks for regulated industries.</p>
+        <button type="button" data-open-inquiry data-service="Cybersecurity" class="inline-flex items-center gap-1.5 mt-6 text-sm font-semibold text-blue-700 hover:gap-2.5 transition-all">Request Service <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i></button>
+      </div>
+
+      <div class="reveal card-hover bg-white rounded-2xl p-7 border border-slate-100">
+        <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-6" style="background:rgba(29,78,216,0.08);">
+          <i data-lucide="server" class="w-6 h-6" style="color:var(--blue);"></i>
+        </div>
+        <h3 class="font-display font-bold text-lg text-[var(--navy)]">Server Infrastructure</h3>
+        <p class="text-sm text-slate-500 mt-3 leading-relaxed">On-prem server rooms, virtualization, and storage architecture built for uptime and easy scaling.</p>
+        <button type="button" data-open-inquiry data-service="Server Infrastructure" class="inline-flex items-center gap-1.5 mt-6 text-sm font-semibold text-blue-700 hover:gap-2.5 transition-all">Request Service <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i></button>
+      </div>
+
+      <div class="reveal card-hover bg-white rounded-2xl p-7 border border-slate-100">
+        <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-6" style="background:rgba(6,182,212,0.1);">
+          <i data-lucide="cloud" class="w-6 h-6" style="color:var(--cyan);"></i>
+        </div>
+        <h3 class="font-display font-bold text-lg text-[var(--navy)]">Cloud Solutions</h3>
+        <p class="text-sm text-slate-500 mt-3 leading-relaxed">Hybrid and multi-cloud migration, architecture, and cost optimization across Azure and AWS.</p>
+        <button type="button" data-open-inquiry data-service="Cloud Solutions" class="inline-flex items-center gap-1.5 mt-6 text-sm font-semibold text-blue-700 hover:gap-2.5 transition-all">Request Service <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i></button>
+      </div>
+
+      <div class="reveal card-hover bg-white rounded-2xl p-7 border border-slate-100">
+        <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-6" style="background:rgba(34,197,94,0.1);">
+          <i data-lucide="headset" class="w-6 h-6" style="color:var(--green);"></i>
+        </div>
+        <h3 class="font-display font-bold text-lg text-[var(--navy)]">Managed IT Services</h3>
+        <p class="text-sm text-slate-500 mt-3 leading-relaxed">Proactive 24/7 monitoring, patching, and help desk support backed by measurable SLAs.</p>
+        <button type="button" data-open-inquiry data-service="Managed IT Services" class="inline-flex items-center gap-1.5 mt-6 text-sm font-semibold text-blue-700 hover:gap-2.5 transition-all">Request Service <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i></button>
+      </div>
+
+      <div class="reveal card-hover bg-white rounded-2xl p-7 border border-slate-100 sm:col-span-2 lg:col-span-1">
+        <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-6" style="background:rgba(15,23,42,0.06);">
+          <i data-lucide="lightbulb" class="w-6 h-6" style="color:var(--navy);"></i>
+        </div>
+        <h3 class="font-display font-bold text-lg text-[var(--navy)]">IT Consulting</h3>
+        <p class="text-sm text-slate-500 mt-3 leading-relaxed">Strategic technology roadmaps, audits, and digital transformation advisory for growing institutions.</p>
+        <button type="button" data-open-inquiry data-service="IT Consulting" class="inline-flex items-center gap-1.5 mt-6 text-sm font-semibold text-blue-700 hover:gap-2.5 transition-all">Request Service <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i></button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= STATS ================= -->
+<section class="py-24 relative overflow-hidden" style="background:var(--navy);">
+  <div class="absolute inset-0 grid-bg opacity-40"></div>
+  <div class="relative max-w-7xl mx-auto px-6 lg:px-8">
+    <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-10">
+      <div class="reveal text-center lg:text-left">
+        <div class="font-num text-4xl lg:text-5xl font-semibold text-white">200<span class="text-cyan-400">+</span></div>
+        <p class="text-slate-400 text-sm mt-2">Enterprise clients supported</p>
+      </div>
+      <div class="reveal text-center lg:text-left">
+        <div class="font-num text-4xl lg:text-5xl font-semibold text-white">14<span class="text-cyan-400">yrs</span></div>
+        <p class="text-slate-400 text-sm mt-2">In continuous operation</p>
+      </div>
+      <div class="reveal text-center lg:text-left">
+        <div class="font-num text-4xl lg:text-5xl font-semibold text-white">99.98<span class="text-cyan-400">%</span></div>
+        <p class="text-slate-400 text-sm mt-2">Average uptime SLA</p>
+      </div>
+      <div class="reveal text-center lg:text-left">
+        <div class="font-num text-4xl lg:text-5xl font-semibold text-white">24<span class="text-cyan-400">/7</span></div>
+        <p class="text-slate-400 text-sm mt-2">NOC & support coverage</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= WHY CHOOSE US ================= -->
+<section class="py-28 bg-white">
+  <div class="max-w-7xl mx-auto px-6 lg:px-8 grid lg:grid-cols-2 gap-16 items-center">
+    <div class="reveal">
+      <span class="text-xs font-semibold tracking-widest text-blue-700">WHY WORLDNET</span>
+      <h2 class="font-display font-extrabold text-3xl sm:text-4xl mt-3 tracking-tight text-[var(--navy)] leading-tight">Built for institutions that can't afford downtime.</h2>
+      <p class="text-slate-500 mt-5 leading-relaxed max-w-lg">Banks, ministries, and hospitals don't get second chances on infrastructure. Every engagement is engineered with redundancy, documented, and backed by a support team that answers.</p>
+
+      <div class="mt-10 space-y-7">
+        <div class="flex gap-4">
+          <div class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style="background:rgba(29,78,216,0.08);">
+            <i data-lucide="badge-check" class="w-5 h-5" style="color:var(--blue);"></i>
+          </div>
+          <div>
+            <h4 class="font-semibold text-[var(--navy)]">Certified engineering team</h4>
+            <p class="text-sm text-slate-500 mt-1">Cisco, Microsoft, AWS, and CompTIA-certified staff on every deployment.</p>
+          </div>
+        </div>
+        <div class="flex gap-4">
+          <div class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style="background:rgba(6,182,212,0.1);">
+            <i data-lucide="clock" class="w-5 h-5" style="color:var(--cyan);"></i>
+          </div>
+          <div>
+            <h4 class="font-semibold text-[var(--navy)]">Guaranteed response SLAs</h4>
+            <p class="text-sm text-slate-500 mt-1">Contracted response and resolution windows, tracked and reported monthly.</p>
+          </div>
+        </div>
+        <div class="flex gap-4">
+          <div class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style="background:rgba(34,197,94,0.1);">
+            <i data-lucide="lock" class="w-5 h-5" style="color:var(--green);"></i>
+          </div>
+          <div>
+            <h4 class="font-semibold text-[var(--navy)]">Security-first delivery</h4>
+            <p class="text-sm text-slate-500 mt-1">Every project reviewed against ISO 27001-aligned controls before go-live.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="reveal relative">
+      <div class="rounded-2xl overflow-hidden border border-slate-100 shadow-xl">
+        <img src="https://images.unsplash.com/photo-1580894732444-8ecded7900cd?w=900&q=80" alt="Enterprise server room with engineers reviewing infrastructure" class="w-full h-[420px] object-cover">
+      </div>
+      <div class="absolute -bottom-6 -left-6 bg-white rounded-xl p-5 shadow-lg border border-slate-100 hidden sm:block">
+        <div class="flex items-center gap-3">
+          <div class="w-11 h-11 rounded-lg flex items-center justify-center" style="background:rgba(34,197,94,0.1);">
+            <i data-lucide="trending-up" class="w-5 h-5" style="color:var(--green);"></i>
+          </div>
+          <div>
+            <div class="font-num font-semibold text-[var(--navy)]">98% CSAT</div>
+            <div class="text-xs text-slate-500">Across managed clients</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= FEATURED PROJECTS ================= -->
+<section id="projects" class="py-28 bg-[var(--bg)]">
+  <div class="max-w-7xl mx-auto px-6 lg:px-8">
+    <div class="reveal flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6 mb-14">
+      <div>
+        <span class="text-xs font-semibold tracking-widest text-blue-700">FEATURED WORK</span>
+        <h2 class="font-display font-extrabold text-3xl sm:text-4xl mt-3 tracking-tight text-[var(--navy)]">Recent deployments</h2>
+      </div>
+      <a href="#" class="inline-flex items-center gap-1.5 text-sm font-semibold text-blue-700">View full portfolio <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i></a>
+    </div>
+
+    <div class="grid md:grid-cols-3 gap-7">
+      <div class="reveal card-hover bg-white rounded-2xl overflow-hidden border border-slate-100">
+        <img src="https://images.unsplash.com/photo-1544197150-b99a580bb7a8?w=700&q=80" alt="Bank data center fiber install" class="w-full h-48 object-cover">
+        <div class="p-6">
+          <span class="text-xs font-semibold text-cyan-700 bg-cyan-50 px-2.5 py-1 rounded-full">Banking & Finance</span>
+          <h3 class="font-display font-bold text-lg text-[var(--navy)] mt-4">Core Banking Network Overhaul</h3>
+          <p class="text-sm text-slate-500 mt-2">Fiber backbone + redundant switching across 12 branches.</p>
+          <div class="flex flex-wrap gap-1.5 mt-4">
+            <span class="text-[11px] font-medium bg-slate-100 text-slate-600 px-2 py-1 rounded-md">Cisco</span>
+            <span class="text-[11px] font-medium bg-slate-100 text-slate-600 px-2 py-1 rounded-md">Fiber</span>
+            <span class="text-[11px] font-medium bg-slate-100 text-slate-600 px-2 py-1 rounded-md">SD-WAN</span>
+          </div>
+          <div class="flex items-center justify-between mt-5 pt-5 border-t border-slate-100">
+            <span class="text-sm font-semibold text-green-600">↑ 60% latency reduction</span>
+            <a href="#" class="text-sm font-semibold text-blue-700">View Details</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="reveal card-hover bg-white rounded-2xl overflow-hidden border border-slate-100">
+        <img src="https://images.unsplash.com/photo-1518770660439-4636190af475?w=700&q=80" alt="Government cybersecurity operations" class="w-full h-48 object-cover">
+        <div class="p-6">
+          <span class="text-xs font-semibold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-full">Government</span>
+          <h3 class="font-display font-bold text-lg text-[var(--navy)] mt-4">Ministry SOC & Threat Monitoring</h3>
+          <p class="text-sm text-slate-500 mt-2">24/7 security operations center with real-time threat response.</p>
+          <div class="flex flex-wrap gap-1.5 mt-4">
+            <span class="text-[11px] font-medium bg-slate-100 text-slate-600 px-2 py-1 rounded-md">SIEM</span>
+            <span class="text-[11px] font-medium bg-slate-100 text-slate-600 px-2 py-1 rounded-md">Firewalls</span>
+            <span class="text-[11px] font-medium bg-slate-100 text-slate-600 px-2 py-1 rounded-md">ISO 27001</span>
+          </div>
+          <div class="flex items-center justify-between mt-5 pt-5 border-t border-slate-100">
+            <span class="text-sm font-semibold text-green-600">Zero breaches, 18 months</span>
+            <a href="#" class="text-sm font-semibold text-blue-700">View Details</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="reveal card-hover bg-white rounded-2xl overflow-hidden border border-slate-100">
+        <img src="https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=700&q=80" alt="University cloud infrastructure migration" class="w-full h-48 object-cover">
+        <div class="p-6">
+          <span class="text-xs font-semibold text-green-700 bg-green-50 px-2.5 py-1 rounded-full">Education</span>
+          <h3 class="font-display font-bold text-lg text-[var(--navy)] mt-4">Campus-Wide Cloud Migration</h3>
+          <p class="text-sm text-slate-500 mt-2">Hybrid cloud rollout serving 9,000+ students and staff.</p>
+          <div class="flex flex-wrap gap-1.5 mt-4">
+            <span class="text-[11px] font-medium bg-slate-100 text-slate-600 px-2 py-1 rounded-md">Azure</span>
+            <span class="text-[11px] font-medium bg-slate-100 text-slate-600 px-2 py-1 rounded-md">M365</span>
+            <span class="text-[11px] font-medium bg-slate-100 text-slate-600 px-2 py-1 rounded-md">SSO</span>
+          </div>
+          <div class="flex items-center justify-between mt-5 pt-5 border-t border-slate-100">
+            <span class="text-sm font-semibold text-green-600">40% IT cost reduction</span>
+            <a href="#" class="text-sm font-semibold text-blue-700">View Details</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= TESTIMONIALS ================= -->
+<section class="py-28 bg-white">
+  <div class="max-w-7xl mx-auto px-6 lg:px-8">
+    <div class="reveal text-center max-w-2xl mx-auto mb-16">
+      <span class="text-xs font-semibold tracking-widest text-blue-700">CLIENT VOICES</span>
+      <h2 class="font-display font-extrabold text-3xl sm:text-4xl mt-3 tracking-tight text-[var(--navy)]">What our clients say</h2>
+    </div>
+
+    <div class="grid md:grid-cols-3 gap-7">
+      <div class="reveal bg-[var(--bg)] rounded-2xl p-7 border border-slate-100">
+        <div class="flex gap-1 text-amber-400 mb-5">
+          <i data-lucide="star" class="w-4 h-4 fill-current"></i><i data-lucide="star" class="w-4 h-4 fill-current"></i><i data-lucide="star" class="w-4 h-4 fill-current"></i><i data-lucide="star" class="w-4 h-4 fill-current"></i><i data-lucide="star" class="w-4 h-4 fill-current"></i>
+        </div>
+        <p class="text-slate-600 leading-relaxed">"WorldNet re-architected our branch network without a single day of downtime. Their NOC catches issues before we even notice them."</p>
+        <div class="flex items-center gap-3 mt-6">
+          <div class="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center font-num font-semibold text-slate-500 text-sm">AK</div>
+          <div>
+            <div class="font-semibold text-sm text-[var(--navy)]">Ama Kufuor</div>
+            <div class="text-xs text-slate-500">Head of IT, Meridian Bank</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="reveal bg-[var(--bg)] rounded-2xl p-7 border border-slate-100">
+        <div class="flex gap-1 text-amber-400 mb-5">
+          <i data-lucide="star" class="w-4 h-4 fill-current"></i><i data-lucide="star" class="w-4 h-4 fill-current"></i><i data-lucide="star" class="w-4 h-4 fill-current"></i><i data-lucide="star" class="w-4 h-4 fill-current"></i><i data-lucide="star" class="w-4 h-4 fill-current"></i>
+        </div>
+        <p class="text-slate-600 leading-relaxed">"The cybersecurity audit uncovered gaps we didn't know existed. Remediation was fast, documented, and audit-ready."</p>
+        <div class="flex items-center gap-3 mt-6">
+          <div class="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center font-num font-semibold text-slate-500 text-sm">JB</div>
+          <div>
+            <div class="font-semibold text-sm text-[var(--navy)]">Joseph Boateng</div>
+            <div class="text-xs text-slate-500">CTO, Gridline Energy</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="reveal bg-[var(--bg)] rounded-2xl p-7 border border-slate-100">
+        <div class="flex gap-1 text-amber-400 mb-5">
+          <i data-lucide="star" class="w-4 h-4 fill-current"></i><i data-lucide="star" class="w-4 h-4 fill-current"></i><i data-lucide="star" class="w-4 h-4 fill-current"></i><i data-lucide="star" class="w-4 h-4 fill-current"></i><i data-lucide="star" class="w-4 h-4 fill-current"></i>
+        </div>
+        <p class="text-slate-600 leading-relaxed">"Managed services with WorldNet freed our internal team to focus on strategy instead of firefighting tickets."</p>
+        <div class="flex items-center gap-3 mt-6">
+          <div class="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center font-num font-semibold text-slate-500 text-sm">FN</div>
+          <div>
+            <div class="font-semibold text-sm text-[var(--navy)]">Farida Nyarko</div>
+            <div class="text-xs text-slate-500">Registrar, Continental University</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= CONTACT CTA ================= -->
+<section id="consult" class="py-24 relative overflow-hidden" style="background:linear-gradient(120deg, #0F172A, #14284D 55%, #0F172A);">
+  <div class="absolute inset-0 grid-bg opacity-30"></div>
+  <div class="relative max-w-4xl mx-auto px-6 lg:px-8 text-center">
+    <h2 class="reveal font-display font-extrabold text-3xl sm:text-4xl text-white tracking-tight">Ready to modernize your infrastructure?</h2>
+    <p class="reveal text-slate-300 mt-5 max-w-xl mx-auto leading-relaxed">Talk to a solutions architect about your network, security, or cloud roadmap — no obligation, just a clear plan.</p>
+    <div class="reveal mt-9 flex flex-col sm:flex-row gap-4 justify-center">
+      <button type="button" data-open-consultation class="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl font-semibold text-white transition-transform hover:scale-[1.03]" style="background:var(--blue); box-shadow:0 8px 30px -6px rgba(29,78,216,0.6);">
+        Book a Consultation <i data-lucide="calendar" class="w-4 h-4"></i>
+      </button>
+      <a href="#" class="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl font-semibold text-white glass hover:bg-white/10 transition-colors">
+        <i data-lucide="phone" class="w-4 h-4"></i> +233 20 000 0000
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ================= SERVICE INQUIRY MODAL (US-04) ================= -->
+<div id="inquiry-overlay" class="fixed inset-0 z-[100] hidden items-center justify-center p-4" style="background:rgba(9,14,26,0.65); backdrop-filter:blur(4px);" role="presentation">
+  <div id="inquiry-modal" class="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="inquiry-title" tabindex="-1">
+
+    <!-- form view -->
+    <div id="inquiry-form-view" class="p-7 sm:p-8">
+      <div class="flex items-start justify-between gap-4 mb-1">
+        <div>
+          <h2 id="inquiry-title" class="font-display font-bold text-xl text-[var(--navy)]">Request a service</h2>
+          <p class="text-sm text-slate-500 mt-1.5">Tell us what you need — a solutions architect will follow up within one business day.</p>
+        </div>
+        <button type="button" data-close-inquiry aria-label="Close form" class="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div id="inquiry-form-error" class="hidden mt-5 text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-4 py-3"></div>
+
+      <form id="inquiry-form" novalidate class="mt-6 space-y-5">
+
+        <div>
+          <label for="inq-name" class="block text-sm font-medium text-[var(--navy)] mb-1.5">Full name <span class="text-red-600">*</span></label>
+          <input type="text" id="inq-name" name="name" autocomplete="name" maxlength="50"
+                 class="w-full px-3.5 py-2.5 text-sm rounded-lg border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-colors"
+                 aria-describedby="inq-name-error">
+          <p id="inq-name-error" class="hidden text-xs text-red-600 mt-1.5"></p>
+        </div>
+
+        <div class="grid sm:grid-cols-2 gap-5">
+          <div>
+            <label for="inq-company" class="block text-sm font-medium text-[var(--navy)] mb-1.5">Company</label>
+            <input type="text" id="inq-company" name="company" autocomplete="organization" maxlength="100"
+                   class="w-full px-3.5 py-2.5 text-sm rounded-lg border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-colors">
+          </div>
+          <div>
+            <label for="inq-phone" class="block text-sm font-medium text-[var(--navy)] mb-1.5">Phone <span class="text-red-600">*</span></label>
+            <input type="tel" id="inq-phone" name="phone" autocomplete="tel" maxlength="20"
+                   class="w-full px-3.5 py-2.5 text-sm rounded-lg border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-colors"
+                   aria-describedby="inq-phone-error">
+            <p id="inq-phone-error" class="hidden text-xs text-red-600 mt-1.5"></p>
+          </div>
+        </div>
+
+        <div>
+          <label for="inq-email" class="block text-sm font-medium text-[var(--navy)] mb-1.5">Email <span class="text-red-600">*</span></label>
+          <input type="email" id="inq-email" name="email" autocomplete="email" maxlength="100"
+                 class="w-full px-3.5 py-2.5 text-sm rounded-lg border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-colors"
+                 aria-describedby="inq-email-error">
+          <p id="inq-email-error" class="hidden text-xs text-red-600 mt-1.5"></p>
+        </div>
+
+        <div>
+          <label for="inq-service" class="block text-sm font-medium text-[var(--navy)] mb-1.5">Service of interest <span class="text-red-600">*</span></label>
+          <select id="inq-service" name="service_type"
+                  class="w-full px-3.5 py-2.5 text-sm rounded-lg border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-colors bg-white"
+                  aria-describedby="inq-service-error">
+            <option value="">Select a service…</option>
+            <option>Enterprise Networking</option>
+            <option>Fiber Optic Installation</option>
+            <option>Cybersecurity</option>
+            <option>Server Infrastructure</option>
+            <option>Cloud Solutions</option>
+            <option>Managed IT Services</option>
+            <option>IT Consulting</option>
+            <option>Not sure yet</option>
+          </select>
+          <p id="inq-service-error" class="hidden text-xs text-red-600 mt-1.5"></p>
+        </div>
+
+        <div>
+          <label for="inq-message" class="block text-sm font-medium text-[var(--navy)] mb-1.5">Message <span class="text-red-600">*</span></label>
+          <textarea id="inq-message" name="message" rows="4" maxlength="1000"
+                    class="w-full px-3.5 py-2.5 text-sm rounded-lg border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-colors resize-none"
+                    placeholder="Briefly describe what you need help with…"
+                    aria-describedby="inq-message-error"></textarea>
+          <p id="inq-message-error" class="hidden text-xs text-red-600 mt-1.5"></p>
+        </div>
+
+        <button type="submit" id="inquiry-submit-btn" class="w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-white transition-transform hover:scale-[1.01]" style="background:var(--blue);">
+          <span id="inquiry-submit-label">Submit inquiry</span>
+        </button>
+        <p class="text-xs text-slate-400 text-center leading-relaxed">We'll never share your details with third parties. By submitting, you agree to be contacted about this request.</p>
+      </form>
+    </div>
+
+    <!-- success view -->
+    <div id="inquiry-success-view" class="hidden p-10 text-center">
+      <div class="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-5" style="background:rgba(34,197,94,0.12);">
+        <i data-lucide="check" class="w-7 h-7" style="color:var(--green);"></i>
+      </div>
+      <h2 class="font-display font-bold text-xl text-[var(--navy)]">Inquiry received</h2>
+      <p class="text-sm text-slate-500 mt-2.5 leading-relaxed">Thanks<span id="inquiry-success-name"></span> — a confirmation has been sent to <span id="inquiry-success-email" class="font-medium text-[var(--navy)]"></span>. Our team will reach out within one business day.</p>
+      <button type="button" data-close-inquiry class="mt-7 inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-white transition-transform hover:scale-[1.02]" style="background:var(--blue);">
+        Done
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ================= CONSULTATION REQUEST MODAL (US-05) ================= -->
+<div id="consultation-overlay" class="fixed inset-0 z-[100] hidden items-center justify-center p-4" style="background:rgba(9,14,26,0.65); backdrop-filter:blur(4px);" role="presentation">
+  <div id="consultation-modal" class="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="consultation-title" tabindex="-1">
+
+    <!-- form view -->
+    <div id="consultation-form-view" class="p-7 sm:p-8">
+      <div class="flex items-start justify-between gap-4 mb-1">
+        <div>
+          <h2 id="consultation-title" class="font-display font-bold text-xl text-[var(--navy)]">Book a consultation</h2>
+          <p class="text-sm text-slate-500 mt-1.5">Pick a date and time that works for you — a solutions architect will confirm by email.</p>
+        </div>
+        <button type="button" data-close-consultation aria-label="Close form" class="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div id="consultation-form-error" class="hidden mt-5 text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-4 py-3"></div>
+
+      <form id="consultation-form" novalidate class="mt-6 space-y-5">
+
+        <div>
+          <label for="con-name" class="block text-sm font-medium text-[var(--navy)] mb-1.5">Full name <span class="text-red-600">*</span></label>
+          <input type="text" id="con-name" name="name" autocomplete="name" maxlength="50"
+                 class="w-full px-3.5 py-2.5 text-sm rounded-lg border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-colors"
+                 aria-describedby="con-name-error">
+          <p id="con-name-error" class="hidden text-xs text-red-600 mt-1.5"></p>
+        </div>
+
+        <div class="grid sm:grid-cols-2 gap-5">
+          <div>
+            <label for="con-company" class="block text-sm font-medium text-[var(--navy)] mb-1.5">Company</label>
+            <input type="text" id="con-company" name="company" autocomplete="organization" maxlength="100"
+                   class="w-full px-3.5 py-2.5 text-sm rounded-lg border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-colors">
+          </div>
+          <div>
+            <label for="con-phone" class="block text-sm font-medium text-[var(--navy)] mb-1.5">Phone <span class="text-red-600">*</span></label>
+            <input type="tel" id="con-phone" name="phone" autocomplete="tel" maxlength="20"
+                   class="w-full px-3.5 py-2.5 text-sm rounded-lg border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-colors"
+                   aria-describedby="con-phone-error">
+            <p id="con-phone-error" class="hidden text-xs text-red-600 mt-1.5"></p>
+          </div>
+        </div>
+
+        <div>
+          <label for="con-email" class="block text-sm font-medium text-[var(--navy)] mb-1.5">Email <span class="text-red-600">*</span></label>
+          <input type="email" id="con-email" name="email" autocomplete="email" maxlength="100"
+                 class="w-full px-3.5 py-2.5 text-sm rounded-lg border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-colors"
+                 aria-describedby="con-email-error">
+          <p id="con-email-error" class="hidden text-xs text-red-600 mt-1.5"></p>
+        </div>
+
+        <div class="grid sm:grid-cols-2 gap-5">
+          <div>
+            <label for="con-date" class="block text-sm font-medium text-[var(--navy)] mb-1.5">Preferred date <span class="text-red-600">*</span></label>
+            <input type="date" id="con-date" name="preferred_date"
+                   class="w-full px-3.5 py-2.5 text-sm rounded-lg border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-colors"
+                   aria-describedby="con-date-error">
+            <p id="con-date-error" class="hidden text-xs text-red-600 mt-1.5"></p>
+          </div>
+          <div>
+            <label for="con-time" class="block text-sm font-medium text-[var(--navy)] mb-1.5">Preferred time <span class="text-red-600">*</span></label>
+            <input type="time" id="con-time" name="preferred_time"
+                   class="w-full px-3.5 py-2.5 text-sm rounded-lg border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-colors"
+                   aria-describedby="con-time-error">
+            <p id="con-time-error" class="hidden text-xs text-red-600 mt-1.5"></p>
+          </div>
+        </div>
+
+        <div>
+          <label for="con-notes" class="block text-sm font-medium text-[var(--navy)] mb-1.5">Notes</label>
+          <textarea id="con-notes" name="notes" rows="3" maxlength="1000"
+                    class="w-full px-3.5 py-2.5 text-sm rounded-lg border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-colors resize-none"
+                    placeholder="Anything specific you'd like to cover? (optional)"></textarea>
+        </div>
+
+        <button type="submit" id="consultation-submit-btn" class="w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-white transition-transform hover:scale-[1.01]" style="background:var(--blue);">
+          <span id="consultation-submit-label">Request consultation</span>
+        </button>
+        <p class="text-xs text-slate-400 text-center leading-relaxed">This reserves a requested slot — our team confirms availability by email or phone.</p>
+      </form>
+    </div>
+
+    <!-- success view -->
+    <div id="consultation-success-view" class="hidden p-10 text-center">
+      <div class="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-5" style="background:rgba(34,197,94,0.12);">
+        <i data-lucide="calendar-check" class="w-7 h-7" style="color:var(--green);"></i>
+      </div>
+      <h2 class="font-display font-bold text-xl text-[var(--navy)]">Consultation requested</h2>
+      <p class="text-sm text-slate-500 mt-2.5 leading-relaxed">Thanks<span id="consultation-success-name"></span> — we've noted your preferred time of <span id="consultation-success-when" class="font-medium text-[var(--navy)]"></span>. We'll confirm by email shortly.</p>
+      <button type="button" data-close-consultation class="mt-7 inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-white transition-transform hover:scale-[1.02]" style="background:var(--blue);">
+        Done
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ================= FOOTER ================= -->
+<footer class="pt-20 pb-10" style="background:#0B1220;">
+  <div class="max-w-7xl mx-auto px-6 lg:px-8">
+    <div class="grid md:grid-cols-5 gap-12">
+      <div class="md:col-span-2">
+        <div class="flex items-center gap-2.5 mb-5">
+          <div class="w-9 h-9 rounded-lg flex items-center justify-center" style="background:linear-gradient(135deg, var(--blue), var(--cyan));">
+            <i data-lucide="network" class="w-5 h-5 text-white"></i>
+          </div>
+          <span class="font-num font-semibold text-lg text-white">WorldNet <span class="font-normal opacity-70">ICT</span></span>
+        </div>
+        <p class="text-sm text-slate-400 leading-relaxed max-w-xs">Enterprise networking, cybersecurity, and cloud infrastructure for institutions that can't afford downtime.</p>
+        <div class="flex gap-3 mt-6">
+          <a href="#" class="w-9 h-9 rounded-lg glass flex items-center justify-center hover:bg-white/10"><i data-lucide="linkedin" class="w-4 h-4 text-white"></i></a>
+          <a href="#" class="w-9 h-9 rounded-lg glass flex items-center justify-center hover:bg-white/10"><i data-lucide="twitter" class="w-4 h-4 text-white"></i></a>
+          <a href="#" class="w-9 h-9 rounded-lg glass flex items-center justify-center hover:bg-white/10"><i data-lucide="facebook" class="w-4 h-4 text-white"></i></a>
+        </div>
+      </div>
+
+      <div>
+        <h4 class="text-white font-semibold text-sm mb-5">Services</h4>
+        <ul class="space-y-3 text-sm text-slate-400">
+          <li><a href="#" class="hover:text-cyan-400">Enterprise Networking</a></li>
+          <li><a href="#" class="hover:text-cyan-400">Fiber Optic Installation</a></li>
+          <li><a href="#" class="hover:text-cyan-400">Cybersecurity</a></li>
+          <li><a href="#" class="hover:text-cyan-400">Cloud Solutions</a></li>
+          <li><a href="#" class="hover:text-cyan-400">Managed IT Services</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <h4 class="text-white font-semibold text-sm mb-5">Company</h4>
+        <ul class="space-y-3 text-sm text-slate-400">
+          <li><a href="#" class="hover:text-cyan-400">About Us</a></li>
+          <li><a href="#" class="hover:text-cyan-400">Portfolio</a></li>
+          <li><a href="#" class="hover:text-cyan-400">Industries Served</a></li>
+          <li><a href="#" class="hover:text-cyan-400">SLA & Support</a></li>
+          <li><a href="#" class="hover:text-cyan-400">FAQ</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <h4 class="text-white font-semibold text-sm mb-5">Contact</h4>
+        <ul class="space-y-3 text-sm text-slate-400">
+          <li class="flex items-start gap-2"><i data-lucide="map-pin" class="w-4 h-4 mt-0.5 shrink-0"></i> Ridge Towers, Accra, Ghana</li>
+          <li class="flex items-center gap-2"><i data-lucide="phone" class="w-4 h-4 shrink-0"></i> +233 20 000 0000</li>
+          <li class="flex items-center gap-2"><i data-lucide="mail" class="w-4 h-4 shrink-0"></i> hello@worldnetict.com</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="border-t border-white/10 mt-14 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <p class="text-xs text-slate-500">© 2026 WorldNet ICT Solutions. All rights reserved.</p>
+      <div class="flex gap-6 text-xs text-slate-500">
+        <a href="#" class="hover:text-slate-300">Privacy Policy</a>
+        <a href="#" class="hover:text-slate-300">Terms of Service</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+  lucide.createIcons();
+
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } });
+  }, { threshold: 0.15 });
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+</script>
+
+<!-- ============= US-04: Service Inquiry form logic =============
+     NOTE ON SCOPE: this file is front-end only. Validation, the modal,
+     and the success state below are fully functional. The actual
+     submission currently only simulates a network call — wiring it to
+     a real backend needs:
+       - POST /api/inquiries  (server-side validation + DB insert into
+         the `inquiries` table per the Sprint 1 schema)
+       - an email service (e.g. SendGrid/Mailgun) to send the management
+         notification + client confirmation email
+     The single spot to change once that endpoint exists is marked
+     "BACKEND INTEGRATION POINT" below.
+-->
+<script>
+  (function(){
+    const overlay      = document.getElementById('inquiry-overlay');
+    const modal         = document.getElementById('inquiry-modal');
+    const formView       = document.getElementById('inquiry-form-view');
+    const successView    = document.getElementById('inquiry-success-view');
+    const form            = document.getElementById('inquiry-form');
+    const formError       = document.getElementById('inquiry-form-error');
+    const submitBtn       = document.getElementById('inquiry-submit-btn');
+    const submitLabel     = document.getElementById('inquiry-submit-label');
+    const serviceSelect   = document.getElementById('inq-service');
+    let lastFocusedEl    = null;
+
+    const fields = {
+      name:    { el: document.getElementById('inq-name'),    errEl: document.getElementById('inq-name-error') },
+      phone:   { el: document.getElementById('inq-phone'),   errEl: document.getElementById('inq-phone-error') },
+      email:   { el: document.getElementById('inq-email'),   errEl: document.getElementById('inq-email-error') },
+      service: { el: document.getElementById('inq-service'), errEl: document.getElementById('inq-service-error') },
+      message: { el: document.getElementById('inq-message'), errEl: document.getElementById('inq-message-error') },
+    };
+
+    function showFieldError(key, msg){
+      const f = fields[key];
+      f.el.classList.add('border-red-400');
+      f.el.setAttribute('aria-invalid', 'true');
+      f.errEl.textContent = msg;
+      f.errEl.classList.remove('hidden');
+    }
+    function clearFieldError(key){
+      const f = fields[key];
+      f.el.classList.remove('border-red-400');
+      f.el.removeAttribute('aria-invalid');
+      f.errEl.classList.add('hidden');
+      f.errEl.textContent = '';
+    }
+    function clearAllErrors(){
+      Object.keys(fields).forEach(clearFieldError);
+      formError.classList.add('hidden');
+      formError.textContent = '';
+    }
+
+    function isValidEmail(v){
+      // Standard pragmatic email check (client-side convenience only —
+      // server-side validation is still required).
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+    }
+
+    function validate(){
+      clearAllErrors();
+      let valid = true;
+      const name    = fields.name.el.value.trim();
+      const phone   = fields.phone.el.value.trim();
+      const email   = fields.email.el.value.trim();
+      const service = fields.service.el.value.trim();
+      const message = document.getElementById('inq-message').value.trim();
+
+      if(!name){ showFieldError('name', 'Please enter your name.'); valid = false; }
+      if(!phone){ showFieldError('phone', 'Please enter a phone number.'); valid = false; }
+      if(!email){ showFieldError('email', 'Please enter your email.'); valid = false; }
+      else if(!isValidEmail(email)){ showFieldError('email', 'Enter a valid email address (e.g. name@company.com).'); valid = false; }
+      if(!service){ showFieldError('service', 'Please select a service.'); valid = false; }
+      if(!message){ showFieldError('message', 'Please add a short message.'); valid = false; }
+
+      return valid;
+    }
+
+    function openModal(serviceName){
+      lastFocusedEl = document.activeElement;
+      overlay.classList.remove('hidden');
+      overlay.classList.add('flex');
+      formView.classList.remove('hidden');
+      successView.classList.add('hidden');
+      form.reset();
+      clearAllErrors();
+      if(serviceName){
+        [...serviceSelect.options].forEach(o => { if(o.value === serviceName) serviceSelect.value = serviceName; });
+      }
+      document.body.style.overflow = 'hidden';
+      setTimeout(() => fields.name.el.focus(), 30);
+    }
+
+    function closeModal(){
+      overlay.classList.add('hidden');
+      overlay.classList.remove('flex');
+      document.body.style.overflow = '';
+      if(lastFocusedEl) lastFocusedEl.focus();
+    }
+
+    document.querySelectorAll('[data-open-inquiry]').forEach(btn => {
+      btn.addEventListener('click', () => openModal(btn.getAttribute('data-service')));
+    });
+    document.querySelectorAll('[data-close-inquiry]').forEach(btn => {
+      btn.addEventListener('click', closeModal);
+    });
+    overlay.addEventListener('click', (e) => { if(e.target === overlay) closeModal(); });
+    document.addEventListener('keydown', (e) => {
+      if(e.key === 'Escape' && !overlay.classList.contains('hidden')) closeModal();
+    });
+
+    form.addEventListener('submit', async function(e){
+      e.preventDefault();
+      if(!validate()) return;
+
+      const payload = {
+        name: fields.name.el.value.trim(),
+        company: document.getElementById('inq-company').value.trim(),
+        email: fields.email.el.value.trim(),
+        phone: fields.phone.el.value.trim(),
+        service_type: fields.service.el.value.trim(),
+        message: document.getElementById('inq-message').value.trim(),
+        source: 'website_inquiry_form',
+      };
+
+      submitBtn.disabled = true;
+      submitLabel.textContent = 'Submitting…';
+
+      try {
+        // ---------------- BACKEND INTEGRATION POINT ----------------
+        // Replace this block with a real call once the API exists, e.g.:
+        //
+        // const res = await fetch('/api/inquiries', {
+        //   method: 'POST',
+        //   headers: { 'Content-Type': 'application/json' },
+        //   body: JSON.stringify(payload)
+        // });
+        // if(!res.ok) throw new Error('request_failed');
+        //
+        // The backend is responsible for: server-side validation,
+        // inserting into the `inquiries` table, sending the management
+        // notification email, and sending the client confirmation email.
+        await new Promise((resolve, reject) => {
+          setTimeout(() => {
+            // Simulated failure path so the error state is reachable/testable.
+            if(payload.email.toLowerCase() === 'fail@test.com'){ reject(new Error('simulated_failure')); return; }
+            resolve();
+          }, 700);
+        });
+        // -------------------------------------------------------------
+
+        document.getElementById('inquiry-success-name').textContent = payload.name ? `, ${payload.name.split(' ')[0]}` : '';
+        document.getElementById('inquiry-success-email').textContent = payload.email;
+        formView.classList.add('hidden');
+        successView.classList.remove('hidden');
+        successView.querySelector('button').focus();
+      } catch(err){
+        formError.textContent = 'Something went wrong submitting your inquiry. Please try again, or call us directly at +233 20 000 0000.';
+        formError.classList.remove('hidden');
+      } finally {
+        submitBtn.disabled = false;
+        submitLabel.textContent = 'Submit inquiry';
+      }
+    });
+  })();
+</script>
+
+<!-- ============= US-05: Consultation Request form logic =============
+     Same scope note as the inquiry form above: fully working front end,
+     simulated submission. Wiring to a backend needs:
+       - POST /api/consultations (insert into the `consultations` table,
+         status defaults to 'pending')
+       - an email notification to management (client confirmation is
+         optional per the spec, but easy to add alongside it)
+     Integration point marked below.
+-->
+<script>
+  (function(){
+    const overlay      = document.getElementById('consultation-overlay');
+    const formView     = document.getElementById('consultation-form-view');
+    const successView  = document.getElementById('consultation-success-view');
+    const form         = document.getElementById('consultation-form');
+    const formError    = document.getElementById('consultation-form-error');
+    const submitBtn    = document.getElementById('consultation-submit-btn');
+    const submitLabel  = document.getElementById('consultation-submit-label');
+    const dateInput    = document.getElementById('con-date');
+    let lastFocusedEl  = null;
+
+    // Prevent selecting a date in the past.
+    const today = new Date();
+    dateInput.min = today.toISOString().split('T')[0];
+
+    const fields = {
+      name:  { el: document.getElementById('con-name'),  errEl: document.getElementById('con-name-error') },
+      phone: { el: document.getElementById('con-phone'), errEl: document.getElementById('con-phone-error') },
+      email: { el: document.getElementById('con-email'), errEl: document.getElementById('con-email-error') },
+      date:  { el: document.getElementById('con-date'),  errEl: document.getElementById('con-date-error') },
+      time:  { el: document.getElementById('con-time'),  errEl: document.getElementById('con-time-error') },
+    };
+
+    function showFieldError(key, msg){
+      const f = fields[key];
+      f.el.classList.add('border-red-400');
+      f.el.setAttribute('aria-invalid', 'true');
+      f.errEl.textContent = msg;
+      f.errEl.classList.remove('hidden');
+    }
+    function clearFieldError(key){
+      const f = fields[key];
+      f.el.classList.remove('border-red-400');
+      f.el.removeAttribute('aria-invalid');
+      f.errEl.classList.add('hidden');
+      f.errEl.textContent = '';
+    }
+    function clearAllErrors(){
+      Object.keys(fields).forEach(clearFieldError);
+      formError.classList.add('hidden');
+      formError.textContent = '';
+    }
+    function isValidEmail(v){
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+    }
+
+    function validate(){
+      clearAllErrors();
+      let valid = true;
+      const name  = fields.name.el.value.trim();
+      const phone = fields.phone.el.value.trim();
+      const email = fields.email.el.value.trim();
+      const date  = fields.date.el.value;
+      const time  = fields.time.el.value;
+
+      if(!name){ showFieldError('name', 'Please enter your name.'); valid = false; }
+      if(!phone){ showFieldError('phone', 'Please enter a phone number.'); valid = false; }
+      if(!email){ showFieldError('email', 'Please enter your email.'); valid = false; }
+      else if(!isValidEmail(email)){ showFieldError('email', 'Enter a valid email address (e.g. name@company.com).'); valid = false; }
+      if(!date){ showFieldError('date', 'Please select a date.'); valid = false; }
+      else if(date < dateInput.min){ showFieldError('date', 'Please choose a date in the future.'); valid = false; }
+      if(!time){ showFieldError('time', 'Please select a time.'); valid = false; }
+
+      return valid;
+    }
+
+    function openModal(){
+      lastFocusedEl = document.activeElement;
+      overlay.classList.remove('hidden');
+      overlay.classList.add('flex');
+      formView.classList.remove('hidden');
+      successView.classList.add('hidden');
+      form.reset();
+      clearAllErrors();
+      document.body.style.overflow = 'hidden';
+      setTimeout(() => fields.name.el.focus(), 30);
+    }
+    function closeModal(){
+      overlay.classList.add('hidden');
+      overlay.classList.remove('flex');
+      document.body.style.overflow = '';
+      if(lastFocusedEl) lastFocusedEl.focus();
+    }
+
+    document.querySelectorAll('[data-open-consultation]').forEach(btn => {
+      btn.addEventListener('click', openModal);
+    });
+    document.querySelectorAll('[data-close-consultation]').forEach(btn => {
+      btn.addEventListener('click', closeModal);
+    });
+    overlay.addEventListener('click', (e) => { if(e.target === overlay) closeModal(); });
+    document.addEventListener('keydown', (e) => {
+      if(e.key === 'Escape' && !overlay.classList.contains('hidden')) closeModal();
+    });
+
+    form.addEventListener('submit', async function(e){
+      e.preventDefault();
+      if(!validate()) return;
+
+      const payload = {
+        name: fields.name.el.value.trim(),
+        company: document.getElementById('con-company').value.trim(),
+        email: fields.email.el.value.trim(),
+        phone: fields.phone.el.value.trim(),
+        preferred_date: fields.date.el.value,
+        preferred_time: fields.time.el.value,
+        notes: document.getElementById('con-notes').value.trim(),
+      };
+
+      submitBtn.disabled = true;
+      submitLabel.textContent = 'Submitting…';
+
+      try {
+        // ---------------- BACKEND INTEGRATION POINT ----------------
+        // const res = await fetch('/api/consultations', {
+        //   method: 'POST',
+        //   headers: { 'Content-Type': 'application/json' },
+        //   body: JSON.stringify(payload)
+        // });
+        // if(!res.ok) throw new Error('request_failed');
+        await new Promise((resolve, reject) => {
+          setTimeout(() => {
+            if(payload.email.toLowerCase() === 'fail@test.com'){ reject(new Error('simulated_failure')); return; }
+            resolve();
+          }, 700);
+        });
+        // -------------------------------------------------------------
+
+        const prettyDate = new Date(payload.preferred_date + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+        document.getElementById('consultation-success-name').textContent = payload.name ? `, ${payload.name.split(' ')[0]}` : '';
+        document.getElementById('consultation-success-when').textContent = `${prettyDate} at ${payload.preferred_time}`;
+        formView.classList.add('hidden');
+        successView.classList.remove('hidden');
+        successView.querySelector('button').focus();
+      } catch(err){
+        formError.textContent = 'Something went wrong submitting your request. Please try again, or call us directly at +233 20 000 0000.';
+        formError.classList.remove('hidden');
+      } finally {
+        submitBtn.disabled = false;
+        submitLabel.textContent = 'Request consultation';
+      }
+    });
+  })();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Consultation | WorldNet ICT Solutions</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+</head>
+
+<body>
+    <div class="topbar">
+        <div class="container">
+            <span>Book a consultation</span>
+            <span>hello@worldnetict.com</span>
+        </div>
+    </div>
+    <header>
+        <div class="container">
+            <nav>
+                <a href="/" style="font-weight:800; font-size:1.1rem">WorldNet</a>
+                <div class="nav-links">
+                    <a href="/" data-nav-link>Home</a>
+                    <a href="/about.html" data-nav-link>About</a>
+                    <a href="/services.html" data-nav-link>Services</a>
+                    <a href="/portfolio.html" data-nav-link>Portfolio</a>
+                    <a href="/faq.html" data-nav-link>FAQ</a>
+                    <a href="/contact.html" data-nav-link>Contact</a>
+                    <a href="/consultation.html" class="btn btn-primary">Book consultation</a>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <main class="section">
+        <div class="container grid-2">
+            <div class="card" style="padding:1.5rem">
+                <h1>Schedule a consultation</h1>
+                <p class="muted">Let us know your preferred date and time and we will confirm shortly.</p>
+                <form id="consultation-form" class="form-grid" style="margin-top:1rem">
+                    <div class="grid-2">
+                        <div><label>Name</label><input name="name" required /></div>
+                        <div><label>Email</label><input type="email" name="email" required /></div>
+                    </div>
+                    <div class="grid-2">
+                        <div><label>Phone</label><input name="phone" required /></div>
+                        <div><label>Company</label><input name="company" /></div>
+                    </div>
+                    <div class="grid-2">
+                        <div><label>Preferred date</label><input type="date" name="preferred_date" required /></div>
+                        <div><label>Preferred time</label><input type="time" name="preferred_time" required /></div>
+                    </div>
+                    <div><label>Notes</label><textarea name="notes"></textarea></div>
+                    <button class="btn btn-primary" type="submit">Request consultation</button>
+                </form>
+            </div>
+            <div class="card" style="padding:1.5rem">
+                <h3>Track your request</h3>
+                <p class="muted">Use the email and phone number from your request to see whether it is still pending or
+                    already viewed.</p>
+                <form id="consultation-tracker-form" class="form-grid" style="margin-top:1rem">
+                    <div><label>Email</label><input type="email" name="email" required /></div>
+                    <div><label>Phone</label><input name="phone" required /></div>
+                    <button class="btn btn-secondary" type="submit">Check status</button>
+                </form>
+                <div id="consultation-tracker-result" class="card"
+                    style="margin-top:1rem; padding:1rem; background:rgba(37, 99, 235, 0.06)">
+                    <p class="muted" style="margin:0">Your request status will appear here after you search.</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="/js/app.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin Dashboard | WorldNet</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+</head>
+
+<body>
+    <header style="background:white">
+        <div class="container" style="display:flex; justify-content:space-between; align-items:center; padding:1rem 0">
+            <h2 style="margin:0">WorldNet Admin</h2>
+            <button id="logout-btn" class="btn btn-secondary">Logout</button>
+        </div>
+    </header>
+    <main id="dashboard-shell" class="section">
+        <div class="container">
+            <div class="grid-4" style="margin-bottom:1rem">
+                <a class="card stat-card stat-card-services" href="/admin/records.html?type=services">
+                    <div>
+                        <h3>Services</h3>
+                        <p id="stats-services">0</p>
+                    </div>
+                    <span class="stat-card-meta">View full service records →</span>
+                </a>
+                <a class="card stat-card stat-card-inquiries" href="/admin/records.html?type=inquiries">
+                    <div>
+                        <h3>Inquiries</h3>
+                        <p id="stats-inquiries">0</p>
+                    </div>
+                    <span class="stat-card-meta">View full inquiry records →</span>
+                </a>
+                <a class="card stat-card stat-card-consultations" href="/admin/consultations.html">
+                    <div>
+                        <h3>Consultations</h3>
+                        <p id="stats-consultations">0</p>
+                    </div>
+                    <span class="stat-card-meta">View full consultation records →</span>
+                </a>
+                <a class="card stat-card stat-card-portfolio" href="/admin/records.html?type=portfolio">
+                    <div>
+                        <h3>Portfolio</h3>
+                        <p id="stats-portfolio">0</p>
+                    </div>
+                    <span class="stat-card-meta">View full portfolio records →</span>
+                </a>
+            </div>
+            <div class="card" style="padding:1rem; margin-bottom:1rem">
+                <div
+                    style="display:flex; justify-content:space-between; align-items:center; gap:0.7rem; flex-wrap:wrap; margin-bottom:0.7rem">
+                    <h3 style="margin:0">Admin alerts</h3>
+                    <div class="pill">Unread: <span id="stats-notifications">0</span></div>
+                </div>
+                <div id="notifications-list" class="grid-2"></div>
+            </div>
+            <div class="card" style="padding:1rem; margin-bottom:1rem">
+                <div
+                    style="display:flex; justify-content:space-between; align-items:center; gap:0.7rem; flex-wrap:wrap; margin-bottom:0.7rem">
+                    <h3 style="margin:0">Team management</h3>
+                    <div class="pill">Workers: <span id="stats-workers">0</span></div>
+                </div>
+                <form id="worker-form" class="form-grid" style="margin-bottom:1rem">
+                    <input name="name" placeholder="Worker name" required />
+                    <input name="department" placeholder="Department" required />
+                    <input name="role" placeholder="Role" required />
+                    <button class="btn btn-primary" type="submit">Add worker</button>
+                </form>
+                <div id="team-roster" class="grid-2"></div>
+            </div>
+            <div class="grid-2">
+                <div class="card" style="padding:1rem">
+                    <div
+                        style="display:flex; justify-content:space-between; align-items:center; gap:0.7rem; margin-bottom:0.8rem">
+                        <h3 style="margin:0">Create or edit service</h3>
+                        <button id="cancel-service-edit" class="btn btn-secondary" type="button"
+                            style="display:none">Cancel edit</button>
+                    </div>
+                    <form id="service-form" class="form-grid">
+                        <input type="hidden" id="service-edit-id" name="id" />
+                        <input name="name" placeholder="Service name" required />
+                        <input name="category" placeholder="Category" required />
+                        <input name="summary" placeholder="Summary" required />
+                        <input name="description" placeholder="Description" />
+                        <input name="icon" placeholder="Icon" />
+                        <div style="display:flex; gap:0.7rem; flex-wrap:wrap">
+                            <button id="service-submit-btn" class="btn btn-primary" type="submit">Save service</button>
+                        </div>
+                    </form>
+                </div>
+                <div class="card" style="padding:1rem">
+                    <h3>Add portfolio item</h3>
+                    <form id="portfolio-form" class="form-grid">
+                        <input name="title" placeholder="Title" required />
+                        <input name="client" placeholder="Client" required />
+                        <input name="category" placeholder="Category" required />
+                        <input name="description" placeholder="Description" />
+                        <input name="outcome" placeholder="Outcome" />
+                        <button class="btn btn-primary" type="submit">Save portfolio item</button>
+                    </form>
+                </div>
+            </div>
+            <div class="card" style="padding:1rem; margin-top:1rem">
+                <h3>Services</h3>
+                <table class="table">
+                    <tbody id="services-body"></tbody>
+                </table>
+            </div>
+            <div class="card" style="padding:1rem; margin-top:1rem">
+                <div
+                    style="display:flex; justify-content:space-between; align-items:center; gap:0.7rem; flex-wrap:wrap; margin-bottom:0.8rem">
+                    <h3 style="margin:0">Inquiries</h3>
+                    <div style="display:flex; gap:0.6rem; flex-wrap:wrap">
+                        <input id="inquiries-search" type="search" placeholder="Search inquiries"
+                            style="min-width:220px" />
+                        <select id="inquiries-status-filter">
+                            <option value="all">All statuses</option>
+                            <option value="new">New</option>
+                            <option value="contacted">Contacted</option>
+                            <option value="resolved">Resolved</option>
+                        </select>
+                        <button id="export-inquiries-btn" class="btn btn-secondary" type="button">Export CSV</button>
+                    </div>
+                </div>
+                <table class="table">
+                    <tbody id="inquiries-body"></tbody>
+                </table>
+            </div>
+            <div class="card" style="padding:1rem; margin-top:1rem">
+                <div
+                    style="display:flex; justify-content:space-between; align-items:center; gap:0.7rem; flex-wrap:wrap; margin-bottom:0.8rem">
+                    <h3 style="margin:0">Consultations</h3>
+                    <div style="display:flex; gap:0.6rem; flex-wrap:wrap">
+                        <input id="consultations-search" type="search" placeholder="Search consultations"
+                            style="min-width:220px" />
+                        <select id="consultations-status-filter">
+                            <option value="all">All statuses</option>
+                            <option value="pending">Pending</option>
+                            <option value="confirmed">Confirmed</option>
+                            <option value="completed">Completed</option>
+                            <option value="cancelled">Cancelled</option>
+                        </select>
+                        <button id="export-consultations-btn" class="btn btn-secondary" type="button">Export
+                            CSV</button>
+                    </div>
+                </div>
+                <table class="table">
+                    <tbody id="consultations-body"></tbody>
+                </table>
+            </div>
+            <div class="card" style="padding:1rem; margin-top:1rem">
+                <h3>Portfolio</h3>
+                <table class="table">
+                    <tbody id="portfolio-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+    <div id="toast" class="toast"></div>
+    <script src="/js/admin.js"></script>
+</body>
+
+</html>
