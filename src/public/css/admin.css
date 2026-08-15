@@ -1416,3 +1416,77 @@ table.admin-table {
 .dept-card .roster-card {
     margin: 0;
 }
+
+/* ---------- Credential modal ---------- */
+.credential-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: rgba(7, 21, 43, 0.45);
+    backdrop-filter: blur(4px);
+    animation: fadeIn 160ms ease-out;
+}
+
+.credential-modal {
+    position: relative;
+    width: min(420px, 100%);
+    background: #fff;
+    border-radius: 1.1rem;
+    box-shadow: 0 30px 70px rgba(7, 21, 43, 0.35);
+    padding: 1.5rem;
+}
+
+.credential-modal h3 {
+    margin: 0 0 0.3rem;
+}
+
+.credential-modal .credential-close {
+    position: absolute;
+    top: 0.7rem;
+    right: 0.9rem;
+    border: none;
+    background: none;
+    font-size: 1.4rem;
+    line-height: 1;
+    cursor: pointer;
+    color: var(--wn-slate-500, #64748b);
+}
+
+.credential-modal .credential-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.7rem 0.8rem;
+    margin: 0.5rem 0;
+    border: 1px solid var(--wn-border, rgba(15, 23, 42, 0.1));
+    border-radius: 0.7rem;
+    background: #f8fafc;
+}
+
+.credential-modal .credential-row span {
+    color: var(--wn-slate-500, #64748b);
+    font-size: 0.85rem;
+}
+
+.credential-modal .credential-row strong {
+    font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+    word-break: break-all;
+    text-align: right;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

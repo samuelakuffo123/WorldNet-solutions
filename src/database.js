@@ -119,6 +119,8 @@ const schema = `
     ALTER TABLE consultations ADD COLUMN IF NOT EXISTS assigned_worker TEXT NOT NULL DEFAULT '';
     ALTER TABLE workers ADD COLUMN IF NOT EXISTS email TEXT NOT NULL DEFAULT '';
     ALTER TABLE workers ADD COLUMN IF NOT EXISTS password_hash TEXT NOT NULL DEFAULT '';
+    ALTER TABLE workers ADD COLUMN IF NOT EXISTS temp_password TEXT NOT NULL DEFAULT '';
+    ALTER TABLE admins ADD COLUMN IF NOT EXISTS temp_password TEXT NOT NULL DEFAULT '';
 `;
 
 function fromRows(rows, settings) {
@@ -143,9 +145,9 @@ function fromRows(rows, settings) {
             handledBy: row.handled_by || '',
             handledAt: row.handled_at?.toISOString() || ''
         })),
-        workers: rows.workers.map((row) => ({ id: row.id, name: row.name, department: row.department, role: row.role, email: row.email || '', passwordHash: row.password_hash || '' })),
+        workers: rows.workers.map((row) => ({ id: row.id, name: row.name, department: row.department, role: row.role, email: row.email || '', passwordHash: row.password_hash || '', tempPassword: row.temp_password || '' })),
         notifications: rows.notifications.map((row) => ({ id: row.id, type: row.type, title: row.title, message: row.message, relatedId: row.related_id, read: row.read, createdAt: row.created_at.toISOString() })),
-        admins: rows.admins.map((row) => ({ id: row.id, name: row.name, email: row.email, passwordHash: row.password_hash, role: row.role })),
+        admins: rows.admins.map((row) => ({ id: row.id, name: row.name, email: row.email, passwordHash: row.password_hash, role: row.role, tempPassword: row.temp_password || '' })),
         settings
     };
 }
@@ -212,9 +214,9 @@ async function replaceDatabase(client, data) {
     for (const item of data.portfolio) await client.query('INSERT INTO portfolio (id, title, client, category, description, outcome) VALUES ($1,$2,$3,$4,$5,$6)', [item.id, item.title, item.client, item.category, item.description || '', item.outcome || '']);
     for (const item of data.inquiries) await client.query('INSERT INTO inquiries (id, name, company, email, phone, service_type, message, status, handled_by, handled_at, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)', [item.id, item.name, item.company || '', item.email, item.phone, item.service_type, item.message, item.status, item.handledBy || '', item.handledAt || null, item.createdAt]);
     for (const item of data.consultations) await client.query('INSERT INTO consultations (id, name, company, email, phone, preferred_date, preferred_time, notes, status, assigned_department, assigned_worker, handled_by, handled_at, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)', [item.id, item.name, item.company || '', item.email, item.phone, item.preferred_date, item.preferred_time, item.notes || '', item.status, item.assignedDepartment || '', item.assignedWorker || '', item.handledBy || '', item.handledAt || null, item.createdAt]);
-    for (const item of data.workers || []) await client.query('INSERT INTO workers (id, name, department, role, email, password_hash) VALUES ($1,$2,$3,$4,$5,$6)', [item.id, item.name, item.department, item.role || '', item.email || '', item.passwordHash || '']);
+    for (const item of data.workers || []) await client.query('INSERT INTO workers (id, name, department, role, email, password_hash, temp_password) VALUES ($1,$2,$3,$4,$5,$6,$7)', [item.id, item.name, item.department, item.role || '', item.email || '', item.passwordHash || '', item.tempPassword || '']);
     for (const item of data.notifications || []) await client.query('INSERT INTO notifications (id, type, title, message, related_id, read, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)', [item.id, item.type, item.title, item.message, item.relatedId || '', Boolean(item.read), item.createdAt]);
-    for (const item of data.admins) await client.query('INSERT INTO admins (id, name, email, password_hash, role) VALUES ($1,$2,$3,$4,$5)', [item.id, item.name, item.email, item.passwordHash, item.role]);
+    for (const item of data.admins) await client.query('INSERT INTO admins (id, name, email, password_hash, role, temp_password) VALUES ($1,$2,$3,$4,$5,$6)', [item.id, item.name, item.email, item.passwordHash, item.role, item.tempPassword || '']);
     await client.query("INSERT INTO settings (key, value) VALUES ('application', $1)", [JSON.stringify(data.settings)]);
 }
 

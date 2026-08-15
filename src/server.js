@@ -182,17 +182,18 @@ const initialData = {
     consultations: [],
     notifications: [],
     workers: [
-        { id: 'wrk-001', name: 'Ama Boateng', department: 'Infrastructure', role: 'Network Engineer', email: 'ama.boateng@worldnetict.com', passwordHash: bcrypt.hashSync('worker123', 10) },
-        { id: 'wrk-002', name: 'Kofi Mensah', department: 'Security', role: 'Security Analyst', email: 'kofi.mensah@worldnetict.com', passwordHash: bcrypt.hashSync('worker123', 10) },
-        { id: 'wrk-003', name: 'Nadia Ali', department: 'Cloud', role: 'Solutions Architect', email: 'nadia.ali@worldnetict.com', passwordHash: bcrypt.hashSync('worker123', 10) }
+        { id: 'WNS-001', name: 'Ama Boateng', department: 'Infrastructure', role: 'Network Engineer', email: 'ama.boateng@worldnetict.com', passwordHash: bcrypt.hashSync('worker123', 10), tempPassword: 'worker123' },
+        { id: 'WNS-002', name: 'Kofi Mensah', department: 'Security', role: 'Security Analyst', email: 'kofi.mensah@worldnetict.com', passwordHash: bcrypt.hashSync('worker123', 10), tempPassword: 'worker123' },
+        { id: 'WNS-003', name: 'Nadia Ali', department: 'Cloud', role: 'Solutions Architect', email: 'nadia.ali@worldnetict.com', passwordHash: bcrypt.hashSync('worker123', 10), tempPassword: 'worker123' }
     ],
     admins: [
         {
-            id: 'adm-001',
+            id: 'ADM-001',
             name: 'System Admin',
             email: 'admin@worldnetict.com',
             passwordHash: bcrypt.hashSync('admin123', 10),
-            role: 'admin'
+            role: 'admin',
+            tempPassword: 'admin123'
         }
     ],
     settings: {
@@ -248,6 +249,35 @@ function sha256(value) {
 
 function makeResetToken() {
     return crypto.randomBytes(32).toString('hex');
+}
+
+function nextSequentialId(list, prefix) {
+    let max = 0;
+    const re = new RegExp(`^${prefix}-(\\d+)$`);
+    for (const item of list || []) {
+        const match = item && item.id && String(item.id).match(re);
+        if (match) max = Math.max(max, Number(match[1]));
+    }
+    return `${prefix}-${String(max + 1).padStart(3, '0')}`;
+}
+
+function generateTempPassword() {
+    const chars = 'abcdefghjkmnpqrstuvwxyz23456789';
+    let code = '';
+    for (let i = 0; i < 6; i += 1) code += chars[Math.floor(Math.random() * chars.length)];
+    return `Wns@${code}`;
+}
+
+function toPublicWorker(worker) {
+    if (!worker) return worker;
+    const { passwordHash, ...publicWorker } = worker;
+    return publicWorker;
+}
+
+function toPublicAdmin(admin) {
+    if (!admin) return admin;
+    const { passwordHash, ...publicAdmin } = admin;
+    return publicAdmin;
 }
 
 function authRequired(req, res, next) {
@@ -624,19 +654,19 @@ app.put('/api/admin/notifications/:id/read', authRequired, async (req, res) => {
 });
 
 app.get('/api/admin/users', authRequired, adminRequired, (_req, res) => {
-    res.json(state.admins.map((admin) => ({ id: admin.id, name: admin.name, email: admin.email, role: admin.role })));
+    res.json(state.admins.map(toPublicAdmin));
 });
-app.get('/api/admin/workers', authRequired, adminRequired, (_req, res) => res.json(state.workers));
+app.get('/api/admin/workers', authRequired, adminRequired, (_req, res) => res.json(state.workers.map(toPublicWorker)));
 
 app.post('/api/admin/users', authRequired, adminRequired, async (req, res) => {
     const name = sanitizeText(req.body.name);
     const email = String(req.body.email || '').trim().toLowerCase();
-    const password = String(req.body.password || '');
-    if (!name || !email || !password) {
+    const providedPassword = String(req.body.password || '');
+    if (!name || !email || !providedPassword) {
         return res.status(400).json({ error: 'Name, email, and password are required.' });
     }
     if (!isValidEmail(email)) return res.status(400).json({ error: 'Please enter a valid email address.' });
-    if (String(password).length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters.' });
+    if (String(providedPassword).length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters.' });
     if (state.admins.some((item) => item.email.toLowerCase() === email)) {
         return res.status(409).json({ error: 'A user with this email already exists.' });
     }
@@ -644,15 +674,26 @@ app.post('/api/admin/users', authRequired, adminRequired, async (req, res) => {
         return res.status(409).json({ error: 'A worker already uses this email.' });
     }
     const admin = {
-        id: `adm-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`,
+        id: nextSequentialId(state.admins, 'ADM'),
         name,
         email,
-        passwordHash: bcrypt.hashSync(password, 10),
-        role: 'admin'
+        passwordHash: bcrypt.hashSync(providedPassword, 10),
+        role: 'admin',
+        tempPassword: providedPassword
     };
     state.admins.push(admin);
     await saveState();
-    res.status(201).json({ ok: true, admin: { id: admin.id, name: admin.name, email: admin.email, role: admin.role } });
+    res.status(201).json({ ok: true, admin: toPublicAdmin(admin) });
+});
+
+app.post('/api/admin/users/:id/reset-password', authRequired, adminRequired, async (req, res) => {
+    const index = state.admins.findIndex((admin) => admin.id === req.params.id);
+    if (index < 0) return res.status(404).json({ error: 'User not found' });
+    const tempPassword = generateTempPassword();
+    state.admins[index].passwordHash = bcrypt.hashSync(tempPassword, 10);
+    state.admins[index].tempPassword = tempPassword;
+    await saveState();
+    res.json({ ok: true, id: state.admins[index].id, password: tempPassword });
 });
 
 app.delete('/api/admin/users/:id', authRequired, adminRequired, async (req, res) => {
@@ -668,7 +709,7 @@ app.post('/api/admin/workers', authRequired, adminRequired, async (req, res) => 
     const department = sanitizeText(req.body.department);
     const role = sanitizeText(req.body.role);
     const email = String(req.body.email || '').trim().toLowerCase();
-    const password = String(req.body.password || '');
+    const providedPassword = String(req.body.password || '');
     if (!name || !department || !role) {
         return res.status(400).json({ error: 'Name, department, and role are required.' });
     }
@@ -678,20 +719,32 @@ app.post('/api/admin/workers', authRequired, adminRequired, async (req, res) => 
     if (email && state.workers.some((worker) => worker.email && worker.email.toLowerCase() === email)) {
         return res.status(409).json({ error: 'A worker with that email already exists.' });
     }
-    if (email && password && String(password).length < 6) {
+    if (providedPassword && String(providedPassword).length < 6) {
         return res.status(400).json({ error: 'Worker password must be at least 6 characters.' });
     }
+    const tempPassword = providedPassword || generateTempPassword();
     const worker = {
-        id: `wrk-${crypto.randomBytes(3).toString('hex')}`,
+        id: nextSequentialId(state.workers, 'WNS'),
         name,
         department,
         role,
         email: email || '',
-        passwordHash: email && password ? bcrypt.hashSync(String(password), 10) : ''
+        passwordHash: bcrypt.hashSync(tempPassword, 10),
+        tempPassword
     };
     state.workers.push(worker);
     await saveState();
-    res.status(201).json(worker);
+    res.status(201).json(toPublicWorker(worker));
+});
+
+app.post('/api/admin/workers/:id/reset-password', authRequired, adminRequired, async (req, res) => {
+    const index = state.workers.findIndex((worker) => worker.id === req.params.id);
+    if (index < 0) return res.status(404).json({ error: 'Worker not found' });
+    const tempPassword = generateTempPassword();
+    state.workers[index].passwordHash = bcrypt.hashSync(tempPassword, 10);
+    state.workers[index].tempPassword = tempPassword;
+    await saveState();
+    res.json({ ok: true, id: state.workers[index].id, password: tempPassword });
 });
 
 app.put('/api/admin/workers/:id', authRequired, adminRequired, async (req, res) => {
@@ -717,7 +770,8 @@ app.put('/api/admin/workers/:id', authRequired, adminRequired, async (req, res) 
         department,
         role,
         email,
-        passwordHash: req.body.password ? bcrypt.hashSync(String(req.body.password), 10) : existing.passwordHash
+        passwordHash: req.body.password ? bcrypt.hashSync(String(req.body.password), 10) : existing.passwordHash,
+        tempPassword: req.body.password ? String(req.body.password) : existing.tempPassword
     };
     state.consultations = state.consultations.map((consultation) => {
         if (consultation.assignedWorker === existing.name) {
@@ -726,7 +780,7 @@ app.put('/api/admin/workers/:id', authRequired, adminRequired, async (req, res) 
         return consultation;
     });
     await saveState();
-    res.json(state.workers[index]);
+    res.json(toPublicWorker(state.workers[index]));
 });
 
 app.get('/api/admin/departments', authRequired, adminRequired, (_req, res) => {
@@ -758,7 +812,7 @@ app.delete('/api/admin/workers/:id', authRequired, adminRequired, async (req, re
     res.json({ ok: true, worker });
 });
 
-app.post('/api/login', loginLimiter, (req, res) => {
+app.post('/api/login', loginLimiter, async (req, res) => {
     const identifier = String(req.body.identifier ?? req.body.email ?? '').trim();
     const password = String(req.body.password ?? '');
     if (!identifier || !password) return res.status(400).json({ error: 'Staff ID or email and password are required.' });
@@ -771,12 +825,20 @@ app.post('/api/login', loginLimiter, (req, res) => {
 
     const admin = findMatch(state.admins);
     if (admin && admin.passwordHash && bcrypt.compareSync(password, admin.passwordHash)) {
+        if (admin.tempPassword) {
+            delete admin.tempPassword;
+            await saveState();
+        }
         const token = createToken({ id: admin.id, email: admin.email, name: admin.name, role: 'admin' });
         return res.json({ ok: true, role: 'admin', token, admin: { id: admin.id, name: admin.name, email: admin.email } });
     }
 
     const worker = findMatch(state.workers);
     if (worker && worker.passwordHash && bcrypt.compareSync(password, worker.passwordHash)) {
+        if (worker.tempPassword) {
+            delete worker.tempPassword;
+            await saveState();
+        }
         const token = createToken({ id: worker.id, email: worker.email, name: worker.name, role: 'worker' });
         return res.json({ ok: true, role: 'worker', token, worker: { id: worker.id, name: worker.name, email: worker.email, department: worker.department, role: worker.role } });
     }
@@ -797,13 +859,17 @@ app.post('/api/register', authLimiter, (_req, res) => {
     res.status(403).json({ error: 'Self-registration is disabled. Ask an administrator to create your account.' });
 });
 
-app.post('/api/worker/login', loginLimiter, (req, res) => {
+app.post('/api/worker/login', loginLimiter, async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ error: 'Email and password are required.' });
     const worker = state.workers.find((item) => item.email && item.email.toLowerCase() === String(email).toLowerCase());
     if (!worker || !worker.passwordHash) return res.status(401).json({ error: 'Invalid credentials' });
     const valid = bcrypt.compareSync(String(password), worker.passwordHash);
     if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
+    if (worker.tempPassword) {
+        delete worker.tempPassword;
+        await saveState();
+    }
     const token = createToken({ id: worker.id, email: worker.email, name: worker.name, role: 'worker' });
     res.json({ ok: true, token, worker: { id: worker.id, name: worker.name, email: worker.email, department: worker.department, role: worker.role } });
 });
@@ -852,6 +918,7 @@ app.post('/api/reset-password', authLimiter, async (req, res) => {
     admin.passwordHash = bcrypt.hashSync(String(password), 10);
     delete admin.resetTokenHash;
     delete admin.resetTokenExpires;
+    delete admin.tempPassword;
     await saveState();
     res.json({ ok: true, message: 'Password updated. You can now sign in.' });
 });

@@ -949,6 +949,39 @@ async function renderRecordsPage(type) {
 
 /* ---------------- Workers ---------------- */
 
+function showCredentialsModal(title, staffId, password) {
+    const overlay = document.createElement('div');
+    overlay.className = 'credential-overlay';
+    overlay.innerHTML = `
+        <div class="credential-modal">
+            <button type="button" class="credential-close" aria-label="Close">&times;</button>
+            <h3>${escapeHtml(title)}</h3>
+            <p class="cell-muted">Share these sign-in details with the user — Staff ID + password, like a Sakai login.</p>
+            <div class="credential-row"><span>Staff ID</span><strong>${escapeHtml(staffId || '')}</strong></div>
+            <div class="credential-row"><span>Password</span><strong>${escapeHtml(password || '')}</strong></div>
+            <p class="cell-muted" style="font-size:0.78rem">The password is temporary — it is cleared after their first sign-in. Reset it any time from the list.</p>
+            <button class="btn-wn btn-wn-primary" type="button" id="credential-copy">Copy credentials</button>
+        </div>`;
+    const close = () => overlay.remove();
+    overlay.addEventListener('click', (event) => {
+        if (event.target === overlay) close();
+    });
+    const closeButton = overlay.querySelector('.credential-close');
+    if (closeButton) closeButton.addEventListener('click', close);
+    const copyButton = overlay.querySelector('#credential-copy');
+    if (copyButton) {
+        copyButton.addEventListener('click', async () => {
+            try {
+                await navigator.clipboard.writeText(`Staff ID: ${staffId || ''}\nPassword: ${password || ''}`);
+                showToast('Credentials copied to clipboard');
+            } catch {
+                showToast('Copy failed — select and copy manually.');
+            }
+        });
+    }
+    document.body.appendChild(overlay);
+}
+
 async function renderWorkersPage() {
     const content = document.getElementById('admin-content');
     try {
@@ -991,12 +1024,13 @@ async function renderWorkersPage() {
                 </details>
                 <div class="admin-table-wrap">
                     <table class="admin-table">
-                        <thead><tr><th>Worker</th><th>Email</th><th>Department</th><th>Role</th><th>Assignments</th><th>Actions</th></tr></thead>
+                        <thead><tr><th>Staff ID</th><th>Worker</th><th>Email</th><th>Department</th><th>Role</th><th>Assignments</th><th>Actions</th></tr></thead>
                         <tbody>
                             ${workers.length ? workers.map((worker) => {
                                 const workerAssignments = consultations.filter((item) => item.assignedWorker === worker.name);
                                 return `
                                 <tr>
+                                    <td class="cell-strong">${escapeHtml(worker.id)}</td>
                                     <td class="cell-strong">${escapeHtml(worker.name)}</td>
                                     <td class="cell-muted">${escapeHtml(worker.email || '—')}</td>
                                     <td class="cell-muted">${escapeHtml(worker.department)}</td>
@@ -1004,6 +1038,7 @@ async function renderWorkersPage() {
                                     <td><span class="status-pill ${workerAssignments.length ? 'contacted' : ''}">${workerAssignments.length} assignment${workerAssignments.length === 1 ? '' : 's'}</span></td>
                                     <td>
                                         <div style="display:flex; gap:0.4rem; align-items:center; flex-wrap:wrap">
+                                            <button class="btn-wn btn-wn-secondary" data-worker-password="${worker.id}" title="View or reset password">Password</button>
                                             <button class="btn-wn btn-wn-secondary" data-view-assignments="${worker.id}">View</button>
                                             <button class="btn-wn btn-wn-secondary" data-edit-worker="${worker.id}">Edit</button>
                                             <button class="btn-wn btn-wn-danger" data-delete-worker="${worker.id}">Delete</button>
@@ -1011,7 +1046,7 @@ async function renderWorkersPage() {
                                     </td>
                                 </tr>
                                 <tr class="assignments-row" id="assignments-${worker.id}" style="display:none">
-                                    <td colspan="6">
+                                    <td colspan="7">
                                         <div class="worker-assignments">
                                             ${workerAssignments.length ? workerAssignments.map((item) => `
                                                 <div class="assignment-item">
@@ -1022,7 +1057,7 @@ async function renderWorkersPage() {
                                         </div>
                                     </td>
                                 </tr>`;
-                            }).join('') : '<tr><td colspan="6" class="cell-muted">No team members yet.</td></tr>'}
+                            }).join('') : '<tr><td colspan="7" class="cell-muted">No team members yet.</td></tr>'}
                         </tbody>
                     </table>
                 </div>
@@ -1052,15 +1087,19 @@ async function renderWorkersPage() {
                 </div>
                 <div class="admin-table-wrap">
                     <table class="admin-table">
-                        <thead><tr><th>Name</th><th>Email</th><th>Access</th><th>Actions</th></tr></thead>
+                        <thead><tr><th>Staff ID</th><th>Name</th><th>Email</th><th>Access</th><th>Actions</th></tr></thead>
                         <tbody>
                             ${users.map((user) => `
                                 <tr>
+                                    <td class="cell-strong">${escapeHtml(user.id)}</td>
                                     <td class="cell-strong">${escapeHtml(user.name)}</td>
                                     <td class="cell-muted">${escapeHtml(user.email)}</td>
                                     <td><span class="status-pill contacted">Admin</span></td>
                                     <td>
-                                        <button class="btn-wn btn-wn-danger" data-delete-user="${escapeHtml(user.id)}">Remove access</button>
+                                        <div style="display:flex; gap:0.4rem; align-items:center; flex-wrap:wrap">
+                                            <button class="btn-wn btn-wn-secondary" data-user-password="${escapeHtml(user.id)}" title="View or reset password">Password</button>
+                                            <button class="btn-wn btn-wn-danger" data-delete-user="${escapeHtml(user.id)}">Remove access</button>
+                                        </div>
                                     </td>
                                 </tr>`).join('')}
                         </tbody>
@@ -1084,22 +1123,62 @@ async function renderWorkersPage() {
             if (isAdmin) delete payload.department;
             try {
                 if (isAdmin) {
-                    await authApi('/api/admin/users', {
+                    const data = await authApi('/api/admin/users', {
                         method: 'POST',
                         body: JSON.stringify({ name: payload.name, email: payload.email, password: payload.password })
                     });
                     showToast('Admin user created');
+                    showCredentialsModal('New admin user', data.admin.id, data.admin.tempPassword);
                 } else {
-                    await authApi('/api/admin/workers', {
+                    const data = await authApi('/api/admin/workers', {
                         method: 'POST',
                         body: JSON.stringify(payload)
                     });
                     showToast('Worker added');
+                    showCredentialsModal('New team member', data.id, data.tempPassword);
                 }
                 renderWorkersPage();
             } catch (error) {
                 showToast(error.message);
             }
+        });
+
+        document.querySelectorAll('[data-worker-password]').forEach((button) => {
+            button.addEventListener('click', async () => {
+                const worker = workers.find((item) => item.id === button.getAttribute('data-worker-password'));
+                if (!worker) return;
+                try {
+                    if (worker.tempPassword) {
+                        showCredentialsModal(worker.name, worker.id, worker.tempPassword);
+                    } else {
+                        if (!confirm(`${worker.name} has no viewable password (already used). Generate a new temporary password?`)) return;
+                        const data = await authApi(`/api/admin/workers/${worker.id}/reset-password`, { method: 'POST' });
+                        showCredentialsModal(worker.name, worker.id, data.password);
+                        renderWorkersPage();
+                    }
+                } catch (error) {
+                    showToast(error.message);
+                }
+            });
+        });
+
+        document.querySelectorAll('[data-user-password]').forEach((button) => {
+            button.addEventListener('click', async () => {
+                const user = users.find((item) => item.id === button.getAttribute('data-user-password'));
+                if (!user) return;
+                try {
+                    if (user.tempPassword) {
+                        showCredentialsModal(user.name, user.id, user.tempPassword);
+                    } else {
+                        if (!confirm(`${user.name} has no viewable password (already used). Generate a new temporary password?`)) return;
+                        const data = await authApi(`/api/admin/users/${user.id}/reset-password`, { method: 'POST' });
+                        showCredentialsModal(user.name, user.id, data.password);
+                        renderWorkersPage();
+                    }
+                } catch (error) {
+                    showToast(error.message);
+                }
+            });
         });
 
         document.querySelectorAll('[data-delete-user]').forEach((button) => {
@@ -1312,9 +1391,10 @@ function wireDashboardForms() {
             event.preventDefault();
             const payload = Object.fromEntries(new FormData(event.target).entries());
             try {
-                await authApi('/api/admin/workers', { method: 'POST', body: JSON.stringify(payload) });
+                const data = await authApi('/api/admin/workers', { method: 'POST', body: JSON.stringify(payload) });
                 event.target.reset();
                 showToast('Team member added');
+                showCredentialsModal(data.name, data.id, data.tempPassword);
                 loadDashboard();
             } catch (error) {
                 showToast(error.message);

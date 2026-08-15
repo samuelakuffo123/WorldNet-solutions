@@ -473,6 +473,109 @@ test('admin can create and remove system users', async () => {
     }
 });
 
+test('workers get sequential staff IDs and a viewable temporary password', async () => {
+    const { baseUrl, cleanup } = await startTestServer();
+    try {
+        const loginResponse = await fetch(`${baseUrl}/api/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ identifier: 'ADM-001', password: 'admin123' })
+        });
+        const { token } = await loginResponse.json();
+        const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
+
+        const createResponse = await fetch(`${baseUrl}/api/admin/workers`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ name: 'Yaa Owusu', department: 'Software', role: 'Developer' })
+        });
+        assert.equal(createResponse.status, 201);
+        const worker = await createResponse.json();
+        assert.equal(worker.id, 'WNS-004', 'new workers should get the next sequential staff ID');
+        assert.ok(worker.tempPassword, 'a temporary password should be generated and viewable');
+        assert.ok(!('passwordHash' in worker), 'worker responses must not expose password hashes');
+
+        const listResponse = await fetch(`${baseUrl}/api/admin/workers`, { headers });
+        const workers = await listResponse.json();
+        assert.ok(workers.every((item) => !('passwordHash' in item)), 'worker list must not leak hashes');
+
+        const loginWithTemp = await fetch(`${baseUrl}/api/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ identifier: worker.id, password: worker.tempPassword })
+        });
+        assert.equal(loginWithTemp.status, 200);
+        const loginBody = await loginWithTemp.json();
+        assert.equal(loginBody.role, 'worker');
+        assert.equal(loginBody.worker.id, 'WNS-004');
+
+        const listAfterLogin = await fetch(`${baseUrl}/api/admin/workers`, { headers });
+        const afterLogin = await listAfterLogin.json();
+        const yaa = afterLogin.find((item) => item.id === 'WNS-004');
+        assert.ok(!yaa.tempPassword, 'temp password should be cleared after first sign-in');
+
+        const resetResponse = await fetch(`${baseUrl}/api/admin/workers/${worker.id}/reset-password`, {
+            method: 'POST',
+            headers
+        });
+        assert.equal(resetResponse.status, 200);
+        const resetBody = await resetResponse.json();
+        assert.ok(resetBody.password);
+        assert.notEqual(resetBody.password, worker.tempPassword);
+
+        const loginAfterReset = await fetch(`${baseUrl}/api/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ identifier: worker.id, password: resetBody.password })
+        });
+        assert.equal(loginAfterReset.status, 200);
+    } finally {
+        await cleanup();
+    }
+});
+
+test('admin-created users get sequential ADM IDs and reset-password works', async () => {
+    const { baseUrl, cleanup } = await startTestServer();
+    try {
+        const loginResponse = await fetch(`${baseUrl}/api/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ identifier: 'ADM-001', password: 'admin123' })
+        });
+        const { token } = await loginResponse.json();
+        const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
+
+        const createResponse = await fetch(`${baseUrl}/api/admin/users`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ name: 'Kwame Frimpong', email: 'kwame.frimpong@worldnetict.com', password: 'initial-pass-8' })
+        });
+        assert.equal(createResponse.status, 201);
+        const created = await createResponse.json();
+        assert.equal(created.admin.id, 'ADM-002', 'new admin users should get the next sequential staff ID');
+        assert.equal(created.admin.tempPassword, 'initial-pass-8');
+
+        const resetResponse = await fetch(`${baseUrl}/api/admin/users/${created.admin.id}/reset-password`, {
+            method: 'POST',
+            headers
+        });
+        assert.equal(resetResponse.status, 200);
+        const resetBody = await resetResponse.json();
+        assert.ok(resetBody.password);
+        assert.ok(resetBody.password.length >= 8);
+
+        const loginResponse2 = await fetch(`${baseUrl}/api/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ identifier: created.admin.id, password: resetBody.password })
+        });
+        assert.equal(loginResponse2.status, 200);
+        assert.equal((await loginResponse2.json()).role, 'admin');
+    } finally {
+        await cleanup();
+    }
+});
+
 test('admin can update inquiry and consultation statuses', async () => {
     const { baseUrl, cleanup } = await startTestServer();
     try {
