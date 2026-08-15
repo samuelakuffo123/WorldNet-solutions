@@ -1118,3 +1118,150 @@ footer a:hover {
         font-size: 2.15rem;
     }
 }
+
+/* ---------------- Mobile navigation ---------------- */
+
+.nav-toggle {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    width: 42px;
+    height: 42px;
+    padding: 10px;
+    border: 1px solid rgba(15, 23, 42, 0.1);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.85);
+    cursor: pointer;
+    transition: transform 240ms var(--ease-premium), box-shadow 240ms var(--ease-premium), border-color 240ms var(--ease-premium);
+}
+
+.nav-toggle span {
+    display: block;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--navy);
+    transition: transform 260ms var(--ease-premium), opacity 260ms var(--ease-premium);
+}
+
+.nav-toggle[aria-expanded="true"] span:nth-child(1) {
+    transform: translateY(7px) rotate(45deg);
+}
+
+.nav-toggle[aria-expanded="true"] span:nth-child(2) {
+    opacity: 0;
+}
+
+.nav-toggle[aria-expanded="true"] span:nth-child(3) {
+    transform: translateY(-7px) rotate(-45deg);
+}
+
+@media (max-width: 900px) {
+    .nav-toggle {
+        display: inline-flex;
+    }
+
+    .nav-links {
+        position: absolute;
+        top: calc(100% + 1px);
+        left: 0;
+        right: 0;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.25rem;
+        padding: 0.9rem 1.25rem 1.25rem;
+        background: rgba(255, 255, 255, 0.97);
+        backdrop-filter: blur(20px);
+        border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+        box-shadow: 0 24px 50px rgba(15, 23, 42, 0.12);
+        opacity: 0;
+        transform: translateY(-8px);
+        pointer-events: none;
+        transition: opacity 240ms var(--ease-premium), transform 240ms var(--ease-premium);
+    }
+
+    body.menu-open .nav-links {
+        opacity: 1;
+        transform: translateY(0);
+        pointer-events: auto;
+    }
+
+    .nav-links a {
+        padding: 0.7rem 0.9rem;
+    }
+
+    .nav-links .btn {
+        margin-top: 0.5rem;
+        justify-content: center;
+    }
+}
+
+/* ---------------- Sticky header elevation ---------------- */
+
+header.scrolled {
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+}
+
+/* ---------------- Scroll-snap pages (home) ---------------- */
+
+.snap-body {
+    scroll-snap-type: y proximity;
+}
+
+.snap-body .snap-section {
+    scroll-snap-align: start;
+    scroll-margin-top: 2rem;
+}
+
+.snap-body > main > .hero,
+.snap-body > main > .hero-secondary {
+    min-height: calc(100vh - 120px);
+    display: flex;
+    align-items: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .snap-body {
+        scroll-snap-type: none;
+    }
+}
+
+/* ---------------- About page add-ons ---------------- */
+
+.portfolio-teaser .portfolio-card {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.portfolio-teaser .portfolio-card .btn {
+    margin-top: auto;
+}
+
+.faq-block details {
+    border: 1px solid rgba(15, 23, 42, 0.1);
+    border-radius: 1rem;
+    background: rgba(255, 255, 255, 0.85);
+    padding: 1rem 1.2rem;
+    transition: border-color 240ms var(--ease-premium), box-shadow 240ms var(--ease-premium);
+}
+
+.faq-block details[open] {
+    border-color: rgba(37, 99, 235, 0.35);
+    box-shadow: 0 14px 34px rgba(37, 99, 235, 0.1);
+}
+
+.faq-block summary {
+    cursor: pointer;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.faq-block summary::marker {
+    color: var(--blue);
+}
+
+.faq-block p {
+    margin: 0.7rem 0 0;
+    color: var(--muted);
+}

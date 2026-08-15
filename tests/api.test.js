@@ -48,7 +48,7 @@ test('health endpoint responds successfully', async () => {
     }
 });
 
-test('a new admin can register and then sign in', async () => {
+test('self-registration is disabled; unified login detects admin vs worker', async () => {
     const { baseUrl, cleanup } = await startTestServer();
     try {
         const registerResponse = await fetch(`${baseUrl}/api/register`, {
@@ -56,31 +56,48 @@ test('a new admin can register and then sign in', async () => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name: 'New Admin', email: 'new-admin@example.com', password: 's3cret-pass' })
         });
-        assert.equal(registerResponse.status, 201);
-        const registerBody = await registerResponse.json();
-        assert.equal(registerBody.admin.email, 'new-admin@example.com');
-        assert.ok(registerBody.token);
+        assert.equal(registerResponse.status, 403);
 
-        const duplicateResponse = await fetch(`${baseUrl}/api/register`, {
+        const configResponse = await fetch(`${baseUrl}/api/auth/config`);
+        const config = await configResponse.json();
+        assert.equal(config.allowRegistration, false);
+
+        const adminLogin = await fetch(`${baseUrl}/api/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: 'Dup', email: 'NEW-ADMIN@example.com', password: 's3cret-pass' })
+            body: JSON.stringify({ identifier: 'admin@worldnetict.com', password: 'admin123' })
         });
-        assert.equal(duplicateResponse.status, 409);
+        assert.equal(adminLogin.status, 200);
+        const adminBody = await adminLogin.json();
+        assert.equal(adminBody.role, 'admin');
+        assert.ok(adminBody.token);
 
-        const shortPasswordResponse = await fetch(`${baseUrl}/api/register`, {
+        const workerEmailLogin = await fetch(`${baseUrl}/api/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: 'Short', email: 'short@example.com', password: '123' })
+            body: JSON.stringify({ identifier: 'ama.boateng@worldnetict.com', password: 'worker123' })
         });
-        assert.equal(shortPasswordResponse.status, 400);
+        assert.equal(workerEmailLogin.status, 200);
+        const workerEmailBody = await workerEmailLogin.json();
+        assert.equal(workerEmailBody.role, 'worker');
+        assert.equal(workerEmailBody.worker.name, 'Ama Boateng');
 
-        const loginResponse = await fetch(`${baseUrl}/api/login`, {
+        const workerIdLogin = await fetch(`${baseUrl}/api/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: 'new-admin@example.com', password: 's3cret-pass' })
+            body: JSON.stringify({ identifier: workerEmailBody.worker.id, password: 'worker123' })
         });
-        assert.equal(loginResponse.status, 200);
+        assert.equal(workerIdLogin.status, 200);
+        const workerIdBody = await workerIdLogin.json();
+        assert.equal(workerIdBody.role, 'worker');
+        assert.equal(workerIdBody.worker.id, workerEmailBody.worker.id);
+
+        const badLogin = await fetch(`${baseUrl}/api/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ identifier: 'admin@worldnetict.com', password: 'wrong-pass' })
+        });
+        assert.equal(badLogin.status, 401);
     } finally {
         await cleanup();
     }
@@ -175,7 +192,7 @@ test('auth config endpoint returns registration flag and google client id', asyn
         const response = await fetch(`${baseUrl}/api/auth/config`);
         assert.equal(response.status, 200);
         const body = await response.json();
-        assert.equal(body.allowRegistration, true);
+        assert.equal(body.allowRegistration, false);
         assert.ok('googleClientId' in body);
     } finally {
         await cleanup();
@@ -391,6 +408,66 @@ test('admin can add and remove workers', async () => {
         assert.equal(deleteResponse.status, 200);
         const workersResponse = await fetch(`${baseUrl}/api/admin/workers`, { headers });
         assert.ok(!(await workersResponse.json()).some((item) => item.id === worker.id));
+    } finally {
+        await cleanup();
+    }
+});
+
+test('admin can create and remove system users', async () => {
+    const { baseUrl, cleanup } = await startTestServer();
+    try {
+        const loginResponse = await fetch(`${baseUrl}/api/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ identifier: 'admin@worldnetict.com', password: 'admin123' })
+        });
+        const { token } = await loginResponse.json();
+        const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
+
+        const createResponse = await fetch(`${baseUrl}/api/admin/users`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ name: 'Araba Quaye', email: 'araba.quaye@worldnetict.com', password: 'secure-pass-8' })
+        });
+        assert.equal(createResponse.status, 201);
+        const created = await createResponse.json();
+        assert.equal(created.admin.email, 'araba.quaye@worldnetict.com');
+
+        const shortPasswordResponse = await fetch(`${baseUrl}/api/admin/users`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ name: 'Short', email: 'short@worldnetict.com', password: '123' })
+        });
+        assert.equal(shortPasswordResponse.status, 400);
+
+        const duplicateResponse = await fetch(`${baseUrl}/api/admin/users`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ name: 'Araba Dup', email: 'araba.quaye@worldnetict.com', password: 'secure-pass-8' })
+        });
+        assert.equal(duplicateResponse.status, 409);
+
+        const newUserLogin = await fetch(`${baseUrl}/api/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ identifier: 'araba.quaye@worldnetict.com', password: 'secure-pass-8' })
+        });
+        assert.equal(newUserLogin.status, 200);
+        const newUserBody = await newUserLogin.json();
+        assert.equal(newUserBody.role, 'admin');
+
+        const usersResponse = await fetch(`${baseUrl}/api/admin/users`, { headers });
+        const users = await usersResponse.json();
+        assert.ok(users.every((user) => !('passwordHash' in user)), 'user list must not leak password hashes');
+
+        const deleteResponse = await fetch(`${baseUrl}/api/admin/users/${created.admin.id}`, { method: 'DELETE', headers });
+        assert.equal(deleteResponse.status, 200);
+        const removedLogin = await fetch(`${baseUrl}/api/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ identifier: 'araba.quaye@worldnetict.com', password: 'secure-pass-8' })
+        });
+        assert.equal(removedLogin.status, 401);
     } finally {
         await cleanup();
     }

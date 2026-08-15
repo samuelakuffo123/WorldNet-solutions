@@ -177,13 +177,13 @@ function renderWorkerDashboard(worker, assignments) {
 
     document.getElementById('worker-logout-btn').addEventListener('click', () => {
         clearWorkerAuth();
-        window.location.href = '/worker-login.html';
+        window.location.href = '/admin/login.html';
     });
 }
 
 function initWorker() {
     if (!getWorkerToken()) {
-        window.location.href = '/worker-login.html';
+        window.location.href = '/admin/login.html';
         return;
     }
     workerApi('/api/worker/me')
@@ -194,7 +194,7 @@ function initWorker() {
         .catch((error) => {
             if (error.message.includes('token') || error.message.includes('Unauthorized')) {
                 clearWorkerAuth();
-                window.location.href = '/worker-login.html';
+                window.location.href = '/admin/login.html';
             } else {
                 showToast(error.message);
             }

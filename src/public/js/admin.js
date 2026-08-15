@@ -952,9 +952,10 @@ async function renderRecordsPage(type) {
 async function renderWorkersPage() {
     const content = document.getElementById('admin-content');
     try {
-        const [workers, consultations] = await Promise.all([
+        const [workers, consultations, users] = await Promise.all([
             authApi('/api/admin/workers'),
-            authApi('/api/consultations')
+            authApi('/api/consultations'),
+            authApi('/api/admin/users')
         ]);
         const departmentOptions = [...new Set(workers.map((worker) => worker.department))].sort();
         content.innerHTML = `
@@ -967,16 +968,25 @@ async function renderWorkersPage() {
                     <summary style="font-weight:700; font-size:0.85rem; cursor:pointer">+ Add team member</summary>
                     <form class="admin-form" id="worker-form" style="margin-top:0.9rem">
                         <div class="form-row">
+                            <div>
+                                <label>Type of access</label>
+                                <select name="userType" id="worker-user-type">
+                                    <option value="staff">Staff (view assigned work)</option>
+                                    <option value="admin">Admin (full console access)</option>
+                                </select>
+                            </div>
                             <div><label>Name</label><input name="name" placeholder="e.g. Adjoa Mensah" required /></div>
-                            <div><label>Email (for login)</label><input name="email" type="email" placeholder="worker@worldnetict.com" /></div>
-                            <div><label>Password</label><input name="password" type="password" placeholder="At least 6 characters" /></div>
                         </div>
                         <div class="form-row">
+                            <div><label>Email (for login)</label><input name="email" type="email" placeholder="worker@worldnetict.com" /></div>
+                            <div><label>Password</label><input name="password" type="password" placeholder="Admin: 8+ chars · Staff: 6+ chars" /></div>
+                        </div>
+                        <div class="form-row" id="worker-only-fields">
                             <div><label>Department</label><input name="department" list="department-list" placeholder="e.g. Infrastructure" required /></div>
                             <div><label>Role</label><input name="role" placeholder="e.g. Network Engineer" required /></div>
                         </div>
                         <datalist id="department-list">${departmentOptions.map((department) => `<option value="${escapeHtml(department)}"></option>`).join('')}</datalist>
-                        <button class="btn-wn btn-wn-primary" type="submit">Add worker</button>
+                        <button class="btn-wn btn-wn-primary" type="submit">Add team member</button>
                     </form>
                 </details>
                 <div class="admin-table-wrap">
@@ -1034,22 +1044,77 @@ async function renderWorkersPage() {
                         <button class="btn-wn btn-wn-ghost" type="button" id="cancel-edit-worker">Cancel</button>
                     </div>
                 </form>
+            </div>
+            <div class="admin-card">
+                <div class="card-head">
+                    <h3>System users</h3>
+                    <span class="cell-muted">${users.length} with console access</span>
+                </div>
+                <div class="admin-table-wrap">
+                    <table class="admin-table">
+                        <thead><tr><th>Name</th><th>Email</th><th>Access</th><th>Actions</th></tr></thead>
+                        <tbody>
+                            ${users.map((user) => `
+                                <tr>
+                                    <td class="cell-strong">${escapeHtml(user.name)}</td>
+                                    <td class="cell-muted">${escapeHtml(user.email)}</td>
+                                    <td><span class="status-pill contacted">Admin</span></td>
+                                    <td>
+                                        <button class="btn-wn btn-wn-danger" data-delete-user="${escapeHtml(user.id)}">Remove access</button>
+                                    </td>
+                                </tr>`).join('')}
+                        </tbody>
+                    </table>
+                </div>
             </div>`;
+
+        document.getElementById('worker-user-type').addEventListener('change', (event) => {
+            const isAdmin = event.target.value === 'admin';
+            document.getElementById('worker-only-fields').style.display = isAdmin ? 'none' : '';
+            const button = document.getElementById('worker-form').querySelector('button[type="submit"]');
+            if (button) button.textContent = isAdmin ? 'Create admin user' : 'Add team member';
+        });
 
         document.getElementById('worker-form').addEventListener('submit', async (event) => {
             event.preventDefault();
             const form = event.currentTarget;
             const payload = Object.fromEntries(new FormData(form).entries());
+            const isAdmin = payload.userType === 'admin';
+            delete payload.userType;
+            if (isAdmin) delete payload.department;
             try {
-                await authApi('/api/admin/workers', {
-                    method: 'POST',
-                    body: JSON.stringify(payload)
-                });
-                showToast('Worker added');
+                if (isAdmin) {
+                    await authApi('/api/admin/users', {
+                        method: 'POST',
+                        body: JSON.stringify({ name: payload.name, email: payload.email, password: payload.password })
+                    });
+                    showToast('Admin user created');
+                } else {
+                    await authApi('/api/admin/workers', {
+                        method: 'POST',
+                        body: JSON.stringify(payload)
+                    });
+                    showToast('Worker added');
+                }
                 renderWorkersPage();
             } catch (error) {
                 showToast(error.message);
             }
+        });
+
+        document.querySelectorAll('[data-delete-user]').forEach((button) => {
+            button.addEventListener('click', async () => {
+                const id = button.getAttribute('data-delete-user');
+                const target = users.find((user) => user.id === id);
+                if (!confirm(`Remove console access for ${target ? target.name : 'this user'}? They will no longer be able to sign in.`)) return;
+                try {
+                    await authApi(`/api/admin/users/${id}`, { method: 'DELETE' });
+                    showToast('Access removed');
+                    renderWorkersPage();
+                } catch (error) {
+                    showToast(error.message);
+                }
+            });
         });
 
         document.querySelectorAll('[data-view-assignments]').forEach((button) => {
@@ -1323,10 +1388,15 @@ function storeAuth(data) {
     localStorage.setItem('worldnet_admin', JSON.stringify(data.admin || {}));
 }
 
-function redirectAfterAuth(message) {
+function storeWorkerAuth(data) {
+    localStorage.setItem('worldnet_worker_token', data.token);
+    localStorage.setItem('worldnet_worker_profile', JSON.stringify(data.worker || {}));
+}
+
+function redirectAfterAuth(message, destination = '/admin/dashboard.html') {
     showToast(message);
     setTimeout(() => {
-        window.location.href = '/admin/dashboard.html';
+        window.location.href = destination;
     }, 450);
 }
 
@@ -1363,8 +1433,13 @@ function wireLogin() {
             });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(data.error || 'Login failed');
-            storeAuth(data);
-            redirectAfterAuth(`Welcome, ${data.admin?.name?.split(' ')[0] || 'Admin'}!`);
+            if (data.role === 'worker') {
+                storeWorkerAuth(data);
+                redirectAfterAuth(`Welcome, ${(data.worker?.name || 'Team member').split(' ')[0]}!`, '/worker.html');
+            } else {
+                storeAuth(data);
+                redirectAfterAuth(`Welcome, ${(data.admin?.name || 'Admin').split(' ')[0]}!`, '/admin/dashboard.html');
+            }
         } catch (error) {
             if (button) { button.disabled = false; button.textContent = 'Sign in'; }
             showToast(error.message);
@@ -1565,12 +1640,9 @@ function initAdmin() {
 
 document.addEventListener('DOMContentLoaded', () => {
     wirePasswordToggles();
-    wireAuthTabs();
     wireLogin();
-    wireRegister();
     wireForgotPassword();
     wireResetPassword();
-    wireGoogleSignIn();
 
     const isAdminPage = window.location.pathname.startsWith('/admin/');
     const authPages = ['login.html', 'register.html', 'forgot-password.html', 'reset-password.html'];

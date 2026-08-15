@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Admin Login | WorldNet</title>
+    <title>Team Sign In | WorldNet</title>
     <link rel="stylesheet" href="/css/admin.css" />
 </head>
 
@@ -12,17 +12,12 @@
     <div class="login-card">
         <div class="brand-mark">W</div>
         <h1>Welcome back</h1>
-        <p class="login-sub">Sign in to the WorldNet admin console.</p>
-
-        <div class="auth-tabs">
-            <button type="button" class="auth-tab active" id="tab-login">Sign in</button>
-            <button type="button" class="auth-tab" id="tab-register">Create account</button>
-        </div>
+        <p class="login-sub">Sign in with your staff ID or email. We'll route you to the right portal.</p>
 
         <form id="login-form" class="login-form" autocomplete="on">
             <div>
-                <label for="email">Email address</label>
-                <input id="email" type="email" name="email" placeholder="admin@worldnetict.com" required autocomplete="email" />
+                <label for="identifier">Staff ID or email</label>
+                <input id="identifier" type="text" name="identifier" placeholder="e.g. wrk-1a2b3c or you@worldnetict.com" required autocomplete="username" />
             </div>
             <div>
                 <label for="password">Password</label>
@@ -34,32 +29,10 @@
             <button class="btn-wn btn-wn-primary" type="submit" style="width:100%; padding:0.85rem">Sign in</button>
         </form>
 
-        <form id="register-form" class="login-form auth-hidden" autocomplete="on">
-            <div>
-                <label for="reg-name">Full name</label>
-                <input id="reg-name" type="text" name="name" placeholder="Jane Doe" required autocomplete="name" />
-            </div>
-            <div>
-                <label for="reg-email">Email address</label>
-                <input id="reg-email" type="email" name="email" placeholder="you@worldnetict.com" required autocomplete="email" />
-            </div>
-            <div>
-                <label for="reg-password">Password</label>
-                <div class="password-field">
-                    <input id="reg-password" type="password" name="password" placeholder="At least 8 characters" required minlength="8" autocomplete="new-password" />
-                    <button type="button" class="password-toggle" data-target="reg-password" aria-label="Show password"></button>
-                </div>
-            </div>
-            <button class="btn-wn btn-wn-primary" type="submit" style="width:100%; padding:0.85rem">Create account</button>
-        </form>
-
-        <div class="auth-divider"><span>or</span></div>
-        <div id="google-signin" style="display:flex; justify-content:center"></div>
-
         <p style="text-align:center; margin:1.1rem 0 0">
             <a href="/admin/forgot-password.html" class="auth-link">Forgot your password?</a>
         </p>
-        <p style="text-align:center; font-size:0.78rem; color:#64748b; margin:1.1rem 0 0">WorldNet ICT Solutions · Admin
+        <p style="text-align:center; font-size:0.78rem; color:#64748b; margin:1.1rem 0 0">WorldNet ICT Solutions · Team
             Console</p>
     </div>
     <div id="toast" class="wn-toast"></div>

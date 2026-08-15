@@ -623,8 +623,45 @@ app.put('/api/admin/notifications/:id/read', authRequired, async (req, res) => {
     res.json(notification);
 });
 
-app.get('/api/admin/users', authRequired, adminRequired, (_req, res) => res.json(state.admins));
+app.get('/api/admin/users', authRequired, adminRequired, (_req, res) => {
+    res.json(state.admins.map((admin) => ({ id: admin.id, name: admin.name, email: admin.email, role: admin.role })));
+});
 app.get('/api/admin/workers', authRequired, adminRequired, (_req, res) => res.json(state.workers));
+
+app.post('/api/admin/users', authRequired, adminRequired, async (req, res) => {
+    const name = sanitizeText(req.body.name);
+    const email = String(req.body.email || '').trim().toLowerCase();
+    const password = String(req.body.password || '');
+    if (!name || !email || !password) {
+        return res.status(400).json({ error: 'Name, email, and password are required.' });
+    }
+    if (!isValidEmail(email)) return res.status(400).json({ error: 'Please enter a valid email address.' });
+    if (String(password).length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters.' });
+    if (state.admins.some((item) => item.email.toLowerCase() === email)) {
+        return res.status(409).json({ error: 'A user with this email already exists.' });
+    }
+    if (state.workers.some((worker) => worker.email && worker.email.toLowerCase() === email)) {
+        return res.status(409).json({ error: 'A worker already uses this email.' });
+    }
+    const admin = {
+        id: `adm-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`,
+        name,
+        email,
+        passwordHash: bcrypt.hashSync(password, 10),
+        role: 'admin'
+    };
+    state.admins.push(admin);
+    await saveState();
+    res.status(201).json({ ok: true, admin: { id: admin.id, name: admin.name, email: admin.email, role: admin.role } });
+});
+
+app.delete('/api/admin/users/:id', authRequired, adminRequired, async (req, res) => {
+    const index = state.admins.findIndex((admin) => admin.id === req.params.id);
+    if (index < 0) return res.status(404).json({ error: 'User not found' });
+    const [removed] = state.admins.splice(index, 1);
+    await saveState();
+    res.json({ ok: true, admin: { id: removed.id, name: removed.name, email: removed.email } });
+});
 
 app.post('/api/admin/workers', authRequired, adminRequired, async (req, res) => {
     const name = sanitizeText(req.body.name);
@@ -721,46 +758,43 @@ app.delete('/api/admin/workers/:id', authRequired, adminRequired, async (req, re
     res.json({ ok: true, worker });
 });
 
-app.post('/api/login', loginLimiter, async (req, res) => {
-    const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ error: 'Email and password are required.' });
-    const admin = state.admins.find((item) => item.email.toLowerCase() === String(email).toLowerCase());
-    if (!admin) return res.status(401).json({ error: 'Invalid credentials' });
-    const valid = bcrypt.compareSync(password, admin.passwordHash);
-    if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
-    const token = createToken({ id: admin.id, email: admin.email, name: admin.name, role: admin.role });
-    res.json({ ok: true, token, admin: { id: admin.id, name: admin.name, email: admin.email } });
+app.post('/api/login', loginLimiter, (req, res) => {
+    const identifier = String(req.body.identifier ?? req.body.email ?? '').trim();
+    const password = String(req.body.password ?? '');
+    if (!identifier || !password) return res.status(400).json({ error: 'Staff ID or email and password are required.' });
+
+    const findMatch = (list) => list.find((item) => {
+        const idMatch = item.id && item.id.toLowerCase() === identifier.toLowerCase();
+        const emailMatch = item.email && item.email.toLowerCase() === identifier.toLowerCase();
+        return idMatch || emailMatch;
+    });
+
+    const admin = findMatch(state.admins);
+    if (admin && admin.passwordHash && bcrypt.compareSync(password, admin.passwordHash)) {
+        const token = createToken({ id: admin.id, email: admin.email, name: admin.name, role: 'admin' });
+        return res.json({ ok: true, role: 'admin', token, admin: { id: admin.id, name: admin.name, email: admin.email } });
+    }
+
+    const worker = findMatch(state.workers);
+    if (worker && worker.passwordHash && bcrypt.compareSync(password, worker.passwordHash)) {
+        const token = createToken({ id: worker.id, email: worker.email, name: worker.name, role: 'worker' });
+        return res.json({ ok: true, role: 'worker', token, worker: { id: worker.id, name: worker.name, email: worker.email, department: worker.department, role: worker.role } });
+    }
+
+    return res.status(401).json({ error: 'Invalid staff ID/email or password.' });
 });
 
 app.post('/api/logout', (_req, res) => res.json({ ok: true }));
 
 app.get('/api/auth/config', (_req, res) => {
     res.json({
-        allowRegistration: true,
+        allowRegistration: false,
         googleClientId: process.env.GOOGLE_CLIENT_ID || ''
     });
 });
 
-app.post('/api/register', authLimiter, async (req, res) => {
-    const { name, email, password } = req.body;
-    const missing = ['name', 'email', 'password'].filter((field) => !String(req.body[field] || '').trim());
-    if (missing.length) return res.status(400).json({ error: `Missing required fields: ${missing.join(', ')}` });
-    if (!isValidEmail(String(email))) return res.status(400).json({ error: 'Please enter a valid email address.' });
-    if (String(password).length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters.' });
-    const normalizedEmail = String(email).trim().toLowerCase();
-    const exists = state.admins.some((item) => item.email.toLowerCase() === normalizedEmail);
-    if (exists) return res.status(409).json({ error: 'An account with this email already exists. Try signing in.' });
-    const admin = {
-        id: `adm-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`,
-        name: sanitizeText(name),
-        email: normalizedEmail,
-        passwordHash: bcrypt.hashSync(String(password), 10),
-        role: 'admin'
-    };
-    state.admins.push(admin);
-    await saveState();
-    const token = createToken({ id: admin.id, email: admin.email, name: admin.name, role: admin.role });
-    res.status(201).json({ ok: true, token, admin: { id: admin.id, name: admin.name, email: admin.email, role: admin.role } });
+app.post('/api/register', authLimiter, (_req, res) => {
+    res.status(403).json({ error: 'Self-registration is disabled. Ask an administrator to create your account.' });
 });
 
 app.post('/api/worker/login', loginLimiter, (req, res) => {
