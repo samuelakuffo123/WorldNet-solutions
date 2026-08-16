@@ -80,22 +80,6 @@ textarea {
     margin: 0 auto;
 }
 
-.topbar {
-    background: linear-gradient(90deg, rgba(37, 99, 235, 0.98), rgba(14, 165, 233, 0.98));
-    color: white;
-    padding: 0.8rem 0;
-    font-size: 0.95rem;
-    letter-spacing: 0.01em;
-}
-
-.topbar .container {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 1rem;
-    flex-wrap: wrap;
-}
-
 header {
     position: sticky;
     top: 0;
