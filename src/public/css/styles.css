@@ -1296,7 +1296,11 @@ header.scrolled {
     scroll-snap-type: y proximity;
 }
 
-.snap-body .snap-section {
+.snap-body .snap-section,
+.snap-body > main > .hero,
+.snap-body > main > .hero-secondary,
+.snap-body > main > .section,
+.snap-body > main > .trust-band {
     scroll-snap-align: start;
     scroll-margin-top: 2rem;
 }
