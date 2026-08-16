@@ -60,6 +60,159 @@ function statusClass(status) {
     return String(status || '').toLowerCase();
 }
 
+/* ---------------- Theme ---------------- */
+
+function getTheme() {
+    try {
+        return localStorage.getItem('worldnet_theme') || 'light';
+    } catch (_error) {
+        return 'light';
+    }
+}
+
+function applyTheme(theme) {
+    const value = theme || getTheme();
+    document.documentElement.setAttribute('data-theme', value);
+    try {
+        localStorage.setItem('worldnet_theme', value);
+    } catch (_error) {
+        /* storage unavailable */
+    }
+    document.querySelectorAll('.theme-toggle').forEach((btn) => {
+        const dark = value === 'dark';
+        btn.title = dark ? 'Switch to light mode' : 'Switch to dark mode';
+        btn.setAttribute('aria-label', btn.title);
+        const icon = btn.querySelector('.theme-icon');
+        if (icon) icon.textContent = dark ? '☀' : '☾';
+    });
+}
+
+function toggleTheme() {
+    applyTheme(getTheme() === 'dark' ? 'light' : 'dark');
+}
+
+function wireThemeToggle() {
+    document.querySelectorAll('.theme-toggle').forEach((btn) => {
+        btn.onclick = (event) => {
+            event.stopPropagation();
+            toggleTheme();
+        };
+    });
+}
+
+/* ---------------- Avatar + profile ---------------- */
+
+function renderAvatar(profile, size) {
+    const name = String(profile?.name || 'W');
+    const photo = profile?.profilePhoto;
+    const sizeStyle = `width:${size}px;height:${size}px`;
+    if (photo && photo.startsWith('data:image/')) {
+        return `<span class="avatar avatar-photo" style="${sizeStyle}"><img src="${photo}" alt="${escapeHtml(name)}" onerror="this.remove()" /></span>`;
+    }
+    return `<span class="avatar" style="${sizeStyle};font-size:${Math.max(12, Math.round(size * 0.42))}px">${escapeHtml(getInitials(name))}</span>`;
+}
+
+function processImageFile(file, maxSize = 480, quality = 0.72) {
+    return new Promise((resolve) => {
+        if (!file || !/^image\/(png|jpeg|webp|gif)$/.test(file.type)) {
+            resolve('');
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => {
+            const image = new Image();
+            image.onload = () => {
+                const longest = Math.max(image.width, image.height);
+                const scale = longest > maxSize ? maxSize / longest : 1;
+                const canvas = document.createElement('canvas');
+                canvas.width = Math.round(image.width * scale);
+                canvas.height = Math.round(image.height * scale);
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+                let type = file.type;
+                if (type === 'image/webp' || type === 'image/gif') type = 'image/jpeg';
+                resolve(canvas.toDataURL(type, quality));
+            };
+            image.onerror = () => resolve('');
+            image.src = reader.result;
+        };
+        reader.onerror = () => resolve('');
+        reader.readAsDataURL(file);
+    });
+}
+
+function openProfileModal() {
+    const profile = getWorkerProfile() || {};
+    const existing = document.getElementById('profile-overlay');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.className = 'credential-overlay';
+    overlay.id = 'profile-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.innerHTML = `
+        <div class="credential-modal profile-modal">
+            <button type="button" class="credential-close" id="profile-close" aria-label="Close">&times;</button>
+            <h3>My profile</h3>
+            <p class="profile-sub">Update your display name and profile photo.</p>
+            <div class="profile-preview" id="profile-preview">${renderAvatar(profile, 88)}</div>
+            <form class="profile-form" id="profile-form">
+                <label for="profile-photo-input">Profile photo</label>
+                <input type="file" id="profile-photo-input" accept="image/png,image/jpeg,image/webp,image/gif" />
+                <label for="profile-name">Full name</label>
+                <input type="text" id="profile-name" value="${escapeHtml(profile.name || '')}" placeholder="Your full name" required />
+                <label for="profile-email">Email</label>
+                <input type="email" id="profile-email" value="${escapeHtml(profile.email || '')}" disabled />
+                <button type="submit" class="btn-wn btn-wn-primary" id="profile-save">Save changes</button>
+            </form>
+        </div>`;
+    document.body.appendChild(overlay);
+
+    let pendingPhoto = '';
+    overlay.querySelector('#profile-close').addEventListener('click', () => overlay.remove());
+    overlay.addEventListener('click', (event) => {
+        if (event.target === overlay) overlay.remove();
+    });
+    const photoInput = overlay.querySelector('#profile-photo-input');
+    const preview = overlay.querySelector('#profile-preview');
+    photoInput.addEventListener('change', async () => {
+        const dataUrl = await processImageFile(photoInput.files && photoInput.files[0]);
+        if (!dataUrl) return;
+        pendingPhoto = dataUrl;
+        preview.innerHTML = `<span class="avatar avatar-photo" style="width:88px;height:88px"><img src="${dataUrl}" alt="Preview" /></span>`;
+    });
+    overlay.querySelector('#profile-form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const name = overlay.querySelector('#profile-name').value.trim();
+        if (!name) {
+            showToast('Please enter your name.');
+            return;
+        }
+        const button = overlay.querySelector('#profile-save');
+        if (button) {
+            button.disabled = true;
+            button.textContent = 'Saving…';
+        }
+        try {
+            const updated = await workerApi('/api/profile', {
+                method: 'PUT',
+                body: JSON.stringify({ name, profilePhoto: pendingPhoto })
+            });
+            const saved = getWorkerProfile() || {};
+            localStorage.setItem(WORKER_PROFILE_KEY, JSON.stringify({ ...saved, ...updated }));
+            showToast('Profile updated');
+            setTimeout(() => window.location.reload(), 500);
+        } catch (error) {
+            if (button) {
+                button.disabled = false;
+                button.textContent = 'Save changes';
+            }
+            showToast(error.message);
+        }
+    });
+}
+
 function formatDate(value) {
     if (!value) return '—';
     return new Date(value).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
@@ -126,12 +279,13 @@ function buildWorkerHeader(worker) {
                     <span>Team Portal</span>
                 </div>
             </div>
-            <div class="worker-user">
-                <div class="avatar">${escapeHtml(getInitials(worker.name))}</div>
+            <div class="worker-user" id="worker-user" title="Edit your profile">
+                ${renderAvatar(worker, 40)}
                 <div class="user-info">
                     <strong>${escapeHtml(worker.name)}</strong>
                     <span>${escapeHtml(worker.department)} · ${escapeHtml(worker.role)}</span>
                 </div>
+                <button class="icon-button theme-toggle" id="worker-theme-toggle" title="Switch to dark mode" style="background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.14); color:#fff"><span class="theme-icon">☾</span></button>
                 <button class="icon-button" id="worker-logout-btn" title="Log out" style="background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.14); color:#fff">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>
                 </button>
@@ -179,6 +333,10 @@ function renderWorkerDashboard(worker, assignments) {
         clearWorkerAuth();
         window.location.href = '/admin/login.html';
     });
+
+    document.getElementById('worker-user').addEventListener('click', openProfileModal);
+    applyTheme();
+    wireThemeToggle();
 }
 
 function initWorker() {
@@ -202,6 +360,8 @@ function initWorker() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    applyTheme();
+    wireThemeToggle();
     renderToggleIcons();
     wireWorkerLogin();
     const isWorkerPage = window.location.pathname === '/worker.html';

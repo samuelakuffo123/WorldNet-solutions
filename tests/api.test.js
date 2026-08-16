@@ -845,3 +845,84 @@ test('departments endpoint groups workers by department with their roles', async
         await cleanup();
     }
 });
+
+test('users can update their name and profile photo via /api/profile', async () => {
+    const { baseUrl, cleanup } = await startTestServer();
+    try {
+        const adminLogin = await fetch(`${baseUrl}/api/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: 'admin@worldnetict.com', password: 'admin123' })
+        });
+        assert.equal(adminLogin.status, 200);
+        const adminBody = await adminLogin.json();
+        assert.equal(adminBody.admin.profilePhoto, '', 'initial admin login should include an empty profile photo');
+        const adminHeaders = { 'Content-Type': 'application/json', Authorization: `Bearer ${adminBody.token}` };
+
+        const dataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+        const updateResponse = await fetch(`${baseUrl}/api/profile`, {
+            method: 'PUT',
+            headers: adminHeaders,
+            body: JSON.stringify({ name: 'Owner Admin', profilePhoto: dataUrl })
+        });
+        assert.equal(updateResponse.status, 200);
+        const updated = await updateResponse.json();
+        assert.equal(updated.name, 'Owner Admin');
+        assert.equal(updated.profilePhoto, dataUrl);
+        assert.ok(!('passwordHash' in updated), 'profile responses must not expose password hashes');
+
+        const relogin = await fetch(`${baseUrl}/api/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: 'admin@worldnetict.com', password: 'admin123' })
+        });
+        const reloginBody = await relogin.json();
+        assert.equal(reloginBody.admin.name, 'Owner Admin', 'profile name changes should persist');
+        assert.equal(reloginBody.admin.profilePhoto, dataUrl, 'stored profile photo should be returned on login');
+
+        const unsafeUpdate = await fetch(`${baseUrl}/api/profile`, {
+            method: 'PUT',
+            headers: adminHeaders,
+            body: JSON.stringify({ name: 'Owner Admin', profilePhoto: '<svg onload=alert(1)>' })
+        });
+        assert.equal(unsafeUpdate.status, 200);
+        const afterUnsafe = await unsafeUpdate.json();
+        assert.equal(afterUnsafe.profilePhoto, '', 'unsafe profile photos should be rejected and cleared');
+
+        const clearedRelogin = await fetch(`${baseUrl}/api/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: 'admin@worldnetict.com', password: 'admin123' })
+        });
+        const clearedBody = await clearedRelogin.json();
+        assert.equal(clearedBody.admin.profilePhoto, '', 'cleared profile photo should remain empty');
+
+        const workerLogin = await fetch(`${baseUrl}/api/worker/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: 'ama.boateng@worldnetict.com', password: 'worker123' })
+        });
+        assert.equal(workerLogin.status, 200);
+        const workerBody = await workerLogin.json();
+        assert.equal(workerBody.worker.profilePhoto, '', 'initial worker login should include an empty profile photo');
+        const workerHeaders = { 'Content-Type': 'application/json', Authorization: `Bearer ${workerBody.token}` };
+
+        const workerUpdate = await fetch(`${baseUrl}/api/profile`, {
+            method: 'PUT',
+            headers: workerHeaders,
+            body: JSON.stringify({ name: 'Ama Boateng (Photographer)', profilePhoto: dataUrl })
+        });
+        assert.equal(workerUpdate.status, 200);
+        const workerUpdated = await workerUpdate.json();
+        assert.equal(workerUpdated.name, 'Ama Boateng (Photographer)');
+        assert.equal(workerUpdated.profilePhoto, dataUrl);
+
+        const meResponse = await fetch(`${baseUrl}/api/worker/me`, { headers: workerHeaders });
+        assert.equal(meResponse.status, 200);
+        const meBody = await meResponse.json();
+        assert.equal(meBody.worker.name, 'Ama Boateng (Photographer)');
+        assert.equal(meBody.worker.profilePhoto, dataUrl);
+    } finally {
+        await cleanup();
+    }
+});

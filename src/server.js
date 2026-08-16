@@ -280,6 +280,14 @@ function toPublicAdmin(admin) {
     return publicAdmin;
 }
 
+function sanitizeProfilePhoto(value) {
+    if (typeof value !== 'string') return '';
+    const trimmed = value.trim();
+    if (!trimmed || trimmed.length > 800000) return '';
+    if (/^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/=\s]+$/.test(trimmed)) return trimmed;
+    return '';
+}
+
 function authRequired(req, res, next) {
     const header = req.headers.authorization || '';
     const token = header.startsWith('Bearer ') ? header.slice(7) : null;
@@ -830,7 +838,7 @@ app.post('/api/login', loginLimiter, async (req, res) => {
             await saveState();
         }
         const token = createToken({ id: admin.id, email: admin.email, name: admin.name, role: 'admin' });
-        return res.json({ ok: true, role: 'admin', token, admin: { id: admin.id, name: admin.name, email: admin.email } });
+        return res.json({ ok: true, role: 'admin', token, admin: { id: admin.id, name: admin.name, email: admin.email, profilePhoto: admin.profilePhoto || '' } });
     }
 
     const worker = findMatch(state.workers);
@@ -840,7 +848,7 @@ app.post('/api/login', loginLimiter, async (req, res) => {
             await saveState();
         }
         const token = createToken({ id: worker.id, email: worker.email, name: worker.name, role: 'worker' });
-        return res.json({ ok: true, role: 'worker', token, worker: { id: worker.id, name: worker.name, email: worker.email, department: worker.department, role: worker.role } });
+        return res.json({ ok: true, role: 'worker', token, worker: { id: worker.id, name: worker.name, email: worker.email, department: worker.department, role: worker.role, profilePhoto: worker.profilePhoto || '' } });
     }
 
     return res.status(401).json({ error: 'Invalid staff ID/email or password.' });
@@ -871,14 +879,34 @@ app.post('/api/worker/login', loginLimiter, async (req, res) => {
         await saveState();
     }
     const token = createToken({ id: worker.id, email: worker.email, name: worker.name, role: 'worker' });
-    res.json({ ok: true, token, worker: { id: worker.id, name: worker.name, email: worker.email, department: worker.department, role: worker.role } });
+    res.json({ ok: true, token, worker: { id: worker.id, name: worker.name, email: worker.email, department: worker.department, role: worker.role, profilePhoto: worker.profilePhoto || '' } });
 });
 
 app.get('/api/worker/me', authRequired, workerRequired, (req, res) => {
     const worker = state.workers.find((item) => item.id === req.admin.id);
     if (!worker) return res.status(404).json({ error: 'Worker not found' });
     const assignments = state.consultations.filter((consultation) => consultation.assignedWorker === worker.name);
-    res.json({ worker: { id: worker.id, name: worker.name, email: worker.email, department: worker.department, role: worker.role }, assignments });
+    res.json({ worker: toPublicWorker(worker), assignments });
+});
+
+app.put('/api/profile', authRequired, async (req, res) => {
+    const name = sanitizeText(req.body.name);
+    if (!name) return res.status(400).json({ error: 'Name is required.' });
+    const profilePhoto = sanitizeProfilePhoto(req.body.profilePhoto);
+    const isAdmin = req.admin.role === 'admin';
+    const list = isAdmin ? state.admins : state.workers;
+    const index = list.findIndex((item) => item.id === req.admin.id);
+    if (index < 0) return res.status(404).json({ error: isAdmin ? 'Admin not found' : 'Worker not found' });
+    const previousName = list[index].name;
+    list[index].name = name;
+    list[index].profilePhoto = profilePhoto;
+    if (!isAdmin && previousName !== name) {
+        state.consultations = state.consultations.map((consultation) => (
+            consultation.assignedWorker === previousName ? { ...consultation, assignedWorker: name } : consultation
+        ));
+    }
+    await saveState();
+    return res.json(isAdmin ? toPublicAdmin(list[index]) : toPublicWorker(list[index]));
 });
 
 app.post('/api/forgot-password', authLimiter, async (req, res) => {
@@ -958,7 +986,7 @@ app.post('/api/auth/google', authLimiter, async (req, res) => {
         await saveState();
     }
     const token = createToken({ id: admin.id, email: admin.email, name: admin.name, role: admin.role });
-    res.json({ ok: true, token, admin: { id: admin.id, name: admin.name, email: admin.email, role: admin.role }, provider: 'google' });
+    res.json({ ok: true, token, admin: { id: admin.id, name: admin.name, email: admin.email, role: admin.role, profilePhoto: admin.profilePhoto || '' }, provider: 'google' });
 });
 
 app.get('/api/settings', (_req, res) => res.json(state.settings));

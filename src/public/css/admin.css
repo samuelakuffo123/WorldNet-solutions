@@ -1490,3 +1490,205 @@ table.admin-table {
         transform: translateY(0);
     }
 }
+
+/* ---------- Avatar photo ---------- */
+.avatar {
+    overflow: hidden;
+}
+
+.avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    border-radius: inherit;
+}
+
+.avatar-photo {
+    background: #fff;
+    padding: 2px;
+    box-shadow: 0 6px 14px rgba(124, 58, 237, 0.3);
+    box-sizing: content-box;
+}
+
+/* ---------- Theme toggle ---------- */
+.theme-toggle .theme-icon {
+    font-size: 1.12rem;
+    line-height: 1;
+    color: inherit;
+}
+
+.login-theme-toggle {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    width: 40px;
+    height: 40px;
+    background: #fff;
+}
+
+html[data-theme="dark"] .login-theme-toggle {
+    background: #1a2945;
+    color: #cdd8ec;
+    border-color: var(--wn-border);
+}
+
+/* ---------- Profile modal ---------- */
+.profile-modal {
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.profile-sub {
+    margin: 0 0 0.9rem;
+    color: var(--wn-slate-500);
+    font-size: 0.85rem;
+}
+
+.profile-preview {
+    display: grid;
+    place-items: center;
+    margin: 0.4rem 0 1.1rem;
+}
+
+.profile-form {
+    display: grid;
+    gap: 0.9rem;
+}
+
+.profile-form label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--wn-slate-700);
+}
+
+.profile-form input {
+    width: 100%;
+    border: 1px solid var(--wn-border);
+    border-radius: 0.85rem;
+    padding: 0.75rem 0.95rem;
+    font: inherit;
+    background: #fbfdff;
+    color: var(--wn-slate-900);
+}
+
+.profile-form input:focus {
+    outline: none;
+    border-color: rgba(37, 99, 235, 0.5);
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+    background: #fff;
+}
+
+.profile-form input:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.profile-form input[type="file"] {
+    padding: 0.5rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+/* ---------- Dark theme ---------- */
+html[data-theme="dark"] {
+    --wn-slate-100: #17233b;
+    --wn-slate-200: #22304d;
+    --wn-slate-400: #7c8ba5;
+    --wn-slate-500: #93a3bd;
+    --wn-slate-700: #cfd9ea;
+    --wn-slate-900: #e8eefb;
+    --wn-border: rgba(160, 180, 215, 0.16);
+    --wn-shadow: 0 18px 45px rgba(0, 0, 0, 0.35);
+    --wn-shadow-lg: 0 28px 68px rgba(0, 0, 0, 0.5);
+}
+
+html[data-theme="dark"] body.admin-body {
+    background: linear-gradient(135deg, #0a1220 0%, #0e1a2f 55%, #0a1626 100%);
+}
+
+html[data-theme="dark"] .admin-topbar,
+html[data-theme="dark"] .login-card {
+    background: rgba(21, 34, 56, 0.95);
+}
+
+html[data-theme="dark"] .admin-topbar {
+    border-bottom-color: var(--wn-border);
+}
+
+html[data-theme="dark"] .stat-card,
+html[data-theme="dark"] .admin-card,
+html[data-theme="dark"] table.admin-table,
+html[data-theme="dark"] .notif-popover,
+html[data-theme="dark"] .credential-modal {
+    background: #142038;
+}
+
+html[data-theme="dark"] .stat-card,
+html[data-theme="dark"] .admin-card,
+html[data-theme="dark"] table.admin-table,
+html[data-theme="dark"] .notif-popover {
+    border-color: var(--wn-border);
+}
+
+html[data-theme="dark"] .admin-topbar .icon-button {
+    background: #1a2945;
+    border-color: var(--wn-border);
+    color: #cdd8ec;
+}
+
+html[data-theme="dark"] .admin-topbar .icon-button:hover {
+    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.4);
+}
+
+html[data-theme="dark"] .admin-table thead th {
+    background: #1a2845;
+}
+
+html[data-theme="dark"] .admin-table tbody td {
+    border-top: 1px solid rgba(160, 180, 215, 0.1);
+}
+
+html[data-theme="dark"] .admin-table tbody tr:hover {
+    background: #1a2a47;
+}
+
+html[data-theme="dark"] .login-form input,
+html[data-theme="dark"] .profile-form input {
+    background: #16233d;
+    color: #e8eefb;
+}
+
+html[data-theme="dark"] .login-form input:focus,
+html[data-theme="dark"] .profile-form input:focus {
+    background: #1b2a47;
+}
+
+html[data-theme="dark"] .auth-tabs {
+    background: #17233b;
+}
+
+html[data-theme="dark"] .notif-popover-head {
+    background: #17233b;
+}
+
+html[data-theme="dark"] .notif-item {
+    border-bottom-color: rgba(160, 180, 215, 0.1);
+}
+
+html[data-theme="dark"] .notif-item.unread {
+    background: rgba(37, 99, 235, 0.14);
+}
+
+html[data-theme="dark"] .credential-modal .credential-row {
+    background: #17233b;
+}
+
+html[data-theme="dark"] .worker-app {
+    background: #0d1526;
+}
+
+html[data-theme="dark"] .worker-user .avatar-photo,
+html[data-theme="dark"] .avatar-photo {
+    background: #16233d;
+}

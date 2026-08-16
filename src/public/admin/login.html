@@ -6,10 +6,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Team Sign In | WorldNet</title>
     <link rel="stylesheet" href="/css/admin.css" />
+    <script>try{if(localStorage.getItem('worldnet_theme')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
 </head>
 
 <body class="login-body">
     <div class="login-card">
+    <button type="button" class="icon-button theme-toggle login-theme-toggle" id="theme-toggle" title="Switch to dark mode" aria-label="Switch to dark mode"><span class="theme-icon">☾</span></button>
         <div class="brand-mark">W</div>
         <h1>Welcome back</h1>
         <p class="login-sub">Sign in with your staff ID — we'll route you to the right portal.</p>
