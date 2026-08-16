@@ -330,8 +330,46 @@ const ICONS = {
     edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
     trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>',
     crown: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18h18M4 9l4 3 4-6 4 6 4-3-1 9H5z"/></svg>',
-    dots: '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="5" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/></svg>'
+    dots: '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="5" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/></svg>',
+    router: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="14" width="20" height="6" rx="1.5"/><path d="M6 17h.01M9 17h.01"/><path d="M12 9v5M12 9l-2.5-2M12 9l2.5-2"/><path d="M16 11a4 4 0 0 0-4-4"/></svg>',
+    serverRack: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="6" rx="1"/><rect x="3" y="10" width="18" height="6" rx="1"/><rect x="3" y="17" width="18" height="4" rx="1"/><path d="M6.5 6h.01M6.5 13h.01M6.5 19h.01"/></svg>',
+    cloud: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19a4.5 4.5 0 0 0 .42-8.98 6 6 0 0 0-11.7 1.36A4 4 0 0 0 7 19z"/><path d="M9 15l3-3 3 3M12 12v7"/></svg>',
+    connectivity: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2.5"/><circle cx="19" cy="6" r="2.5"/><circle cx="12" cy="19" r="2.5"/><path d="M6.6 7.1L10 16M17.4 7.1L14 16M12 16.5v-9"/></svg>',
+    shieldIoT: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"/><circle cx="12" cy="11" r="2"/><path d="M10.5 13l-2 3M13.5 13l-1 3"/></svg>'
 };
+
+const SERVICE_THUMB_KINDS = {
+    infrastructure: { icon: 'serverRack', gradient: 'linear-gradient(135deg, #0ea5e9, #2563eb)' },
+    network: { icon: 'router', gradient: 'linear-gradient(135deg, #2563eb, #7c3aed)' },
+    cloud: { icon: 'cloud', gradient: 'linear-gradient(135deg, #06b6d4, #0ea5e9)' },
+    connectivity: { icon: 'connectivity', gradient: 'linear-gradient(135deg, #22c55e, #0ea5e9)' },
+    security: { icon: 'shieldIoT', gradient: 'linear-gradient(135deg, #f43f5e, #7c3aed)' },
+    iot: { icon: 'shieldIoT', gradient: 'linear-gradient(135deg, #f59e0b, #f43f5e)' }
+};
+
+function serviceThumbKind(service) {
+    const haystack = `${service.category || ''} ${service.name || ''} ${service.icon || ''}`.toLowerCase();
+    if (/(cloud|hosting|saas|data center|data-centre)/.test(haystack)) return SERVICE_THUMB_KINDS.cloud;
+    if (/(networking|router|switch|isp|broadband|fiber|fibre|wifi|wireless|connectivity)/.test(haystack)) return SERVICE_THUMB_KINDS.network;
+    if (/(security|cyber|firewall|vpn|encryption)/.test(haystack)) return SERVICE_THUMB_KINDS.security;
+    if (/(server|rack|colo|infrastructure?|managed it|support)/.test(haystack)) return SERVICE_THUMB_KINDS.infrastructure;
+    if (/(iot|smart|automation|sensor)/.test(haystack)) return SERVICE_THUMB_KINDS.iot;
+    if (/(connect|link|lease|dedicated|tower|mast)/.test(haystack)) return SERVICE_THUMB_KINDS.connectivity;
+    return SERVICE_THUMB_KINDS.connectivity;
+}
+
+function renderServiceThumb(service, size = 64) {
+    const kind = serviceThumbKind(service);
+    const img = service && typeof service.thumbnail === 'string' && service.thumbnail.trim();
+    const boxStyle = `width:${size}px;height:${size}px;flex:0 0 ${size}px`;
+    if (img) {
+        return `<span class="svc-thumb svc-thumb-img" style="${boxStyle}"><img src="${escapeHtml(img)}" alt="${escapeHtml(service && service.name || 'Service')}" loading="lazy" /></span>`;
+    }
+    return `
+        <span class="svc-thumb" style="${boxStyle};background:${kind.gradient}">
+            <span class="svc-thumb-icon" style="width:${Math.round(size * 0.5)}px;height:${Math.round(size * 0.5)}px">${ICONS[kind.icon] || ICONS.services}</span>
+        </span>`;
+}
 
 /* ---------------- Shared shell ---------------- */
 
@@ -438,9 +476,31 @@ function renderShell(activeKey, pageTitle, pageSubtitle) {
 
     const sidebar = document.getElementById('admin-sidebar');
     const backdrop = document.getElementById('admin-backdrop');
+    const SIDEBAR_KEY = 'worldnet_sidebar_collapsed';
+    const isDesktopSidebar = () => window.matchMedia('(min-width: 1180px)').matches;
+
+    const setCollapsed = (collapsed) => {
+        sidebar.classList.toggle('collapsed', collapsed);
+        sidebar.classList.remove('open');
+        backdrop.classList.remove('open');
+        try {
+            localStorage.setItem(SIDEBAR_KEY, collapsed ? '1' : '0');
+        } catch (error) {
+            /* storage unavailable */
+        }
+    };
+
+    if (isDesktopSidebar() && localStorage.getItem(SIDEBAR_KEY) === '1') {
+        setCollapsed(true);
+    }
+
     const toggleSidebar = () => {
-        sidebar.classList.toggle('open');
-        backdrop.classList.toggle('open');
+        if (isDesktopSidebar()) {
+            setCollapsed(!sidebar.classList.contains('collapsed'));
+        } else {
+            sidebar.classList.toggle('open');
+            backdrop.classList.toggle('open');
+        }
     };
     const closeSidebar = () => {
         sidebar.classList.remove('open');
@@ -619,6 +679,7 @@ function buildDashboard(admin) {
                     <h3>Content studio</h3>
                     <span class="cell-muted">Create & edit</span>
                 </div>
+                <div class="studio-service-list" id="studio-service-list"></div>
                 <details style="border:1px solid var(--wn-border); border-radius:0.9rem; padding:0.6rem 0.8rem">
                     <summary style="font-weight:700; font-size:0.85rem; cursor:pointer">${ICONS.services} New / edit service</summary>
                     <form id="service-form" class="admin-form" style="margin-top:0.8rem">
@@ -810,6 +871,7 @@ async function loadDashboard() {
         renderInquiryChart(inquiries);
         renderActivityFeed(notifications);
         renderTeamRoster(workers);
+        renderStudioServices(services);
 
         document.getElementById('services-body').innerHTML = services.length
             ? services.map((service) => `
@@ -938,6 +1000,25 @@ function renderTeamRoster(workers) {
                 <button class="btn-wn btn-wn-danger" type="button" data-delete-worker="${worker.id}" style="padding:0.35rem 0.7rem; font-size:0.76rem">Remove</button>
             </div>`).join('')
         : '<p class="cell-muted">No team members yet.</p>';
+}
+
+function renderStudioServices(services) {
+    const list = document.getElementById('studio-service-list');
+    if (!list) return;
+    list.innerHTML = services.length
+        ? services.map((service) => `
+            <div class="studio-service-item">
+                ${renderServiceThumb(service, 64)}
+                <div class="studio-body">
+                    <strong>${escapeHtml(service.name)}</strong>
+                    <span>${escapeHtml(service.category || '')}${service.priceRange ? ` · ${escapeHtml(service.priceRange)}` : ''}</span>
+                </div>
+                <div style="display:flex; gap:0.4rem">
+                    <button class="btn-wn btn-wn-ghost" type="button" data-edit-service="${service.id}" style="padding:0.35rem 0.7rem; font-size:0.74rem">${ICONS.edit} Edit</button>
+                    <button class="btn-wn btn-wn-danger" type="button" data-delete-service="${service.id}" style="padding:0.35rem 0.7rem; font-size:0.74rem">${ICONS.trash}</button>
+                </div>
+            </div>`).join('')
+        : '<p class="cell-muted">No services yet — create your first one below.</p>';
 }
 
 function wireDashboardEvents(services, workers) {
