@@ -151,6 +151,27 @@ function wireThemeToggle() {
 
 /* ---------------- Avatar + profile ---------------- */
 
+const AVATAR_PALETTE = [
+    'linear-gradient(135deg, #2563eb, #0ea5e9)',
+    'linear-gradient(135deg, #7c3aed, #2563eb)',
+    'linear-gradient(135deg, #0ea5e9, #22c55e)',
+    'linear-gradient(135deg, #f59e0b, #f43f5e)',
+    'linear-gradient(135deg, #06b6d4, #2563eb)',
+    'linear-gradient(135deg, #ec4899, #7c3aed)',
+    'linear-gradient(135deg, #3b82f6, #22d3ee)',
+    'linear-gradient(135deg, #8b5cf6, #0ea5e9)'
+];
+
+function avatarColor(name) {
+    const source = String(name || 'A');
+    let hash = 0;
+    for (let i = 0; i < source.length; i += 1) {
+        hash = ((hash << 5) - hash) + source.charCodeAt(i);
+        hash |= 0;
+    }
+    return AVATAR_PALETTE[Math.abs(hash) % AVATAR_PALETTE.length];
+}
+
 function renderAvatar(profile, size) {
     const name = String(profile?.name || 'A');
     const photo = profile?.profilePhoto;
@@ -158,7 +179,7 @@ function renderAvatar(profile, size) {
     if (photo && photo.startsWith('data:image/')) {
         return `<span class="avatar avatar-photo" style="${sizeStyle}"><img src="${photo}" alt="${escapeHtml(name)}" onerror="this.remove()" /></span>`;
     }
-    return `<span class="avatar" style="${sizeStyle};font-size:${Math.max(12, Math.round(size * 0.42))}px">${escapeHtml(getInitials(name))}</span>`;
+    return `<span class="avatar" style="${sizeStyle};font-size:${Math.max(12, Math.round(size * 0.42))}px;background:${avatarColor(name)}">${escapeHtml(getInitials(name))}</span>`;
 }
 
 function processImageFile(file, maxSize = 480, quality = 0.72) {
@@ -303,7 +324,13 @@ const ICONS = {
     eyeOff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>',
     check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
     departments: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v14M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M9 11h.01M15 11h.01M9 15h.01M15 15h.01"/></svg>',
-    reports: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M16 13H8M16 17H8M10 9H8"/></svg>'
+    reports: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M16 13H8M16 17H8M10 9H8"/></svg>',
+    search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
+    key: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>',
+    edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
+    trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>',
+    crown: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18h18M4 9l4 3 4-6 4 6 4-3-1 9H5z"/></svg>',
+    dots: '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="5" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/></svg>'
 };
 
 /* ---------------- Shared shell ---------------- */
@@ -1207,6 +1234,41 @@ function showCredentialsModal(title, staffId, password) {
     document.body.appendChild(overlay);
 }
 
+function closeRowMenus() {
+    document.querySelectorAll('.row-menu.open').forEach((menu) => {
+        menu.classList.remove('open');
+        const trigger = menu.querySelector('.row-menu-trigger');
+        if (trigger) trigger.setAttribute('aria-expanded', 'false');
+    });
+}
+
+function wireRowMenus() {
+    document.querySelectorAll('.row-menu').forEach((menu) => {
+        if (menu.dataset.wired) return;
+        menu.dataset.wired = 'true';
+        const trigger = menu.querySelector('.row-menu-trigger');
+        const pop = menu.querySelector('.row-menu-pop');
+        if (!trigger || !pop) return;
+        trigger.addEventListener('click', (event) => {
+            event.stopPropagation();
+            const willOpen = !menu.classList.contains('open');
+            closeRowMenus();
+            if (willOpen) {
+                menu.classList.add('open');
+                trigger.setAttribute('aria-expanded', 'true');
+            }
+        });
+        pop.addEventListener('click', (event) => event.stopPropagation());
+    });
+}
+
+document.addEventListener('click', (event) => {
+    if (!event.target.closest('.row-menu')) closeRowMenus();
+});
+document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') closeRowMenus();
+});
+
 async function renderWorkersPage() {
     const content = document.getElementById('admin-content');
     try {
@@ -1216,15 +1278,17 @@ async function renderWorkersPage() {
             authApi('/api/admin/users')
         ]);
         const departmentOptions = [...new Set(workers.map((worker) => worker.department))].sort();
+        const roleOptions = [...new Set(workers.map((worker) => worker.role))].sort();
+        const state = { search: '', dept: '', role: '', page: 1, perPage: 10 };
         content.innerHTML = `
-            <div class="admin-card">
+            <div class="admin-card workers-card">
                 <div class="card-head">
                     <h3>Workers</h3>
-                    <span class="cell-muted">${workers.length} member${workers.length === 1 ? '' : 's'}</span>
+                    <span class="cell-muted" id="workers-count-label">${workers.length} member${workers.length === 1 ? '' : 's'}</span>
                 </div>
-                <details class="worker-add-panel" style="margin-bottom:1rem">
-                    <summary style="font-weight:700; font-size:0.85rem; cursor:pointer">+ Add team member</summary>
-                    <form class="admin-form" id="worker-form" style="margin-top:0.9rem">
+                <div class="worker-add-panel" style="margin-bottom:1rem">
+                    <button type="button" class="worker-add-toggle" id="worker-add-toggle">${ICONS.plus}<span>Add team member</span></button>
+                    <form class="admin-form" id="worker-form" style="margin-top:0.9rem; display:none">
                         <div class="form-row">
                             <div>
                                 <label>Type of access</label>
@@ -1246,45 +1310,30 @@ async function renderWorkersPage() {
                         <datalist id="department-list">${departmentOptions.map((department) => `<option value="${escapeHtml(department)}"></option>`).join('')}</datalist>
                         <button class="btn-wn btn-wn-primary" type="submit">Add team member</button>
                     </form>
-                </details>
+                </div>
+                <div class="table-toolbar">
+                    <div class="toolbar-search">
+                        ${ICONS.search}
+                        <input type="search" id="worker-search" placeholder="Search by name, ID or email…" aria-label="Search workers" />
+                    </div>
+                    <select id="worker-filter-dept" class="table-filter" aria-label="Filter by department">
+                        <option value="">All departments</option>
+                        ${departmentOptions.map((department) => `<option value="${escapeHtml(department)}">${escapeHtml(department)}</option>`).join('')}
+                    </select>
+                    <select id="worker-filter-role" class="table-filter" aria-label="Filter by role">
+                        <option value="">All roles</option>
+                        ${roleOptions.map((role) => `<option value="${escapeHtml(role)}">${escapeHtml(role)}</option>`).join('')}
+                    </select>
+                    <div class="table-legend" aria-hidden="true">
+                        <span class="legend-item"><span class="legend-dot legend-active"></span>Active</span>
+                        <span class="legend-item"><span class="legend-dot legend-idle"></span>Idle</span>
+                    </div>
+                    <div class="table-pagination" id="worker-pagination"></div>
+                </div>
                 <div class="admin-table-wrap">
-                    <table class="admin-table">
-                        <thead><tr><th>Staff ID</th><th>Worker</th><th>Email</th><th>Department</th><th>Role</th><th>Assignments</th><th>Actions</th></tr></thead>
-                        <tbody>
-                            ${workers.length ? workers.map((worker) => {
-                                const workerAssignments = consultations.filter((item) => item.assignedWorker === worker.name);
-                                return `
-                                <tr>
-                                    <td class="cell-strong">${escapeHtml(worker.id)}</td>
-                                    <td class="cell-strong"><span class="worker-name-cell">${renderAvatar(worker, 30)}<span>${escapeHtml(worker.name)}</span></span>${worker.isDepartmentHead ? ' <span class="status-pill contacted head-pill">Head</span>' : ''}</td>
-                                    <td class="cell-muted">${escapeHtml(worker.email || '—')}</td>
-                                    <td class="cell-muted">${escapeHtml(worker.department)}</td>
-                                    <td class="cell-muted">${escapeHtml(worker.role)}</td>
-                                    <td><span class="status-pill ${workerAssignments.length ? 'contacted' : ''}">${workerAssignments.length} assignment${workerAssignments.length === 1 ? '' : 's'}</span></td>
-                                    <td>
-                                        <div style="display:flex; gap:0.4rem; align-items:center; flex-wrap:wrap">
-                                            <button class="btn-wn btn-wn-secondary" data-worker-password="${worker.id}" title="View or reset password">Password</button>
-                                            <button class="btn-wn btn-wn-secondary" data-view-assignments="${worker.id}">View</button>
-                                            <button class="btn-wn btn-wn-secondary" data-edit-worker="${worker.id}">Edit</button>
-                                            <button class="btn-wn ${worker.isDepartmentHead ? 'btn-wn-ghost' : 'btn-wn-secondary'}" data-toggle-head="${worker.id}" title="Make this worker the head of their department">${worker.isDepartmentHead ? 'Remove head' : 'Make head'}</button>
-                                            <button class="btn-wn btn-wn-danger" data-delete-worker="${worker.id}">Delete</button>
-                                        </div>
-                                    </td>
-                                </tr>
-                                <tr class="assignments-row" id="assignments-${worker.id}" style="display:none">
-                                    <td colspan="7">
-                                        <div class="worker-assignments">
-                                            ${workerAssignments.length ? workerAssignments.map((item) => `
-                                                <div class="assignment-item">
-                                                    <div><strong>${escapeHtml(item.name)}</strong><span class="cell-muted"> · ${escapeHtml(item.company || '—')}</span></div>
-                                                    <div class="cell-muted">${escapeHtml(item.preferred_date)} @ ${escapeHtml(item.preferred_time)}</div>
-                                                    <span class="status-pill ${statusClass(item.status)}">${escapeHtml(item.status)}</span>
-                                                </div>`).join('') : '<p class="cell-muted">No assignments.</p>'}
-                                        </div>
-                                    </td>
-                                </tr>`;
-                            }).join('') : '<tr><td colspan="7" class="cell-muted">No team members yet.</td></tr>'}
-                        </tbody>
+                    <table class="admin-table" id="workers-table">
+                        <thead><tr><th>Staff ID</th><th>Worker</th><th>Email</th><th>Department</th><th>Role</th><th>Assignments</th><th class="actions-col">Actions</th></tr></thead>
+                        <tbody id="workers-tbody"></tbody>
                     </table>
                 </div>
             </div>
@@ -1321,7 +1370,7 @@ async function renderWorkersPage() {
                             ${users.map((user) => `
                                 <tr>
                                     <td class="cell-strong">${escapeHtml(user.id)}</td>
-                                    <td class="cell-strong">${escapeHtml(user.name)}</td>
+                                    <td class="cell-strong"><span class="worker-name-cell">${renderAvatar(user, 40)}<span>${escapeHtml(user.name)}</span></span></td>
                                     <td class="cell-muted">${escapeHtml(user.email)}</td>
                                     <td><span class="status-pill contacted">Admin</span></td>
                                     <td>
@@ -1336,11 +1385,119 @@ async function renderWorkersPage() {
                 </div>
             </div>`;
 
+        const tbody = document.getElementById('workers-tbody');
+        const pagination = document.getElementById('worker-pagination');
+
+        const matches = (worker) => {
+            const q = state.search.toLowerCase();
+            const haystack = `${worker.id} ${worker.name} ${worker.email || ''}`.toLowerCase();
+            return (!q || haystack.includes(q)) &&
+                (!state.dept || worker.department === state.dept) &&
+                (!state.role || worker.role === state.role);
+        };
+
+        const rowTemplate = (worker) => {
+            const workerAssignments = consultations.filter((item) => item.assignedWorker === worker.name);
+            const count = workerAssignments.length;
+            const emailCell = worker.email
+                ? escapeHtml(worker.email)
+                : '<span class="empty-cell">No email on file</span>';
+            const assignmentPill = count
+                ? `<span class="assignment-pill active" title="${count} active assignment${count === 1 ? '' : 's'}">${count} assignment${count === 1 ? '' : 's'}</span>`
+                : '<span class="assignment-pill idle" title="No active assignments">0 assignments</span>';
+            return `
+                <tr data-worker-row="${worker.id}">
+                    <td class="cell-strong">${escapeHtml(worker.id)}</td>
+                    <td class="cell-strong"><span class="worker-name-cell">${renderAvatar(worker, 40)}<span>${escapeHtml(worker.name)}</span></span>${worker.isDepartmentHead ? ' <span class="status-pill contacted head-pill">Head</span>' : ''}</td>
+                    <td class="cell-muted">${emailCell}</td>
+                    <td class="cell-muted">${escapeHtml(worker.department)}</td>
+                    <td class="cell-muted">${escapeHtml(worker.role)}</td>
+                    <td>${assignmentPill}</td>
+                    <td class="actions-col">
+                        <div class="row-menu">
+                            <button type="button" class="row-menu-trigger" aria-label="Actions for ${escapeHtml(worker.name)}" aria-expanded="false">${ICONS.dots}</button>
+                            <div class="row-menu-pop" role="menu">
+                                <button type="button" class="row-menu-item" role="menuitem" data-worker-password="${worker.id}">${ICONS.key}<span>Password</span></button>
+                                <button type="button" class="row-menu-item" role="menuitem" data-view-assignments="${worker.id}">${ICONS.eye}<span>View</span></button>
+                                <button type="button" class="row-menu-item" role="menuitem" data-edit-worker="${worker.id}">${ICONS.edit}<span>Edit</span></button>
+                                <button type="button" class="row-menu-item" role="menuitem" data-toggle-head="${worker.id}">${ICONS.crown}<span>${worker.isDepartmentHead ? 'Remove head' : 'Make head'}</span></button>
+                                <button type="button" class="row-menu-item row-menu-danger" role="menuitem" data-delete-worker="${worker.id}">${ICONS.trash}<span>Delete</span></button>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="assignments-row" id="assignments-${worker.id}" style="display:none">
+                    <td colspan="7">
+                        <div class="worker-assignments">
+                            ${workerAssignments.length ? workerAssignments.map((item) => `
+                                <div class="assignment-item">
+                                    <div><strong>${escapeHtml(item.name)}</strong><span class="cell-muted"> · ${escapeHtml(item.company || '—')}</span></div>
+                                    <div class="cell-muted">${escapeHtml(item.preferred_date)} @ ${escapeHtml(item.preferred_time)}</div>
+                                    <span class="status-pill ${statusClass(item.status)}">${escapeHtml(item.status)}</span>
+                                </div>`).join('') : '<p class="cell-muted">No assignments.</p>'}
+                        </div>
+                    </td>
+                </tr>`;
+        };
+
+        const renderRows = () => {
+            const filtered = workers.filter(matches);
+            const pages = Math.max(1, Math.ceil(filtered.length / state.perPage));
+            if (state.page > pages) state.page = pages;
+            const start = (state.page - 1) * state.perPage;
+            const pageRows = filtered.slice(start, start + state.perPage);
+            tbody.innerHTML = pageRows.length
+                ? pageRows.map(rowTemplate).join('')
+                : '<tr><td colspan="7" class="cell-muted">No team members match your filters.</td></tr>';
+            wireRowMenus();
+            pagination.innerHTML = `
+                <button type="button" class="page-btn" data-page="${state.page - 1}" ${state.page === 1 ? 'disabled' : ''} aria-label="Previous page">‹</button>
+                <span class="page-info">${state.page} / ${pages}</span>
+                <button type="button" class="page-btn" data-page="${state.page + 1}" ${state.page === pages ? 'disabled' : ''} aria-label="Next page">›</button>`;
+        };
+
+        renderRows();
+
+        const searchInput = document.getElementById('worker-search');
+        const deptFilter = document.getElementById('worker-filter-dept');
+        const roleFilter = document.getElementById('worker-filter-role');
+        searchInput.addEventListener('input', () => {
+            state.search = searchInput.value;
+            state.page = 1;
+            renderRows();
+        });
+        deptFilter.addEventListener('change', () => {
+            state.dept = deptFilter.value;
+            state.page = 1;
+            renderRows();
+        });
+        roleFilter.addEventListener('change', () => {
+            state.role = roleFilter.value;
+            state.page = 1;
+            renderRows();
+        });
+        pagination.addEventListener('click', (event) => {
+            const btn = event.target.closest('.page-btn');
+            if (!btn || btn.disabled) return;
+            const page = Number.parseInt(btn.dataset.page, 10);
+            if (page >= 1) {
+                state.page = page;
+                renderRows();
+            }
+        });
+
         document.getElementById('worker-user-type').addEventListener('change', (event) => {
             const isAdmin = event.target.value === 'admin';
             document.getElementById('worker-only-fields').style.display = isAdmin ? 'none' : '';
             const button = document.getElementById('worker-form').querySelector('button[type="submit"]');
             if (button) button.textContent = isAdmin ? 'Create admin user' : 'Add team member';
+        });
+
+        document.getElementById('worker-add-toggle').addEventListener('click', () => {
+            const form = document.getElementById('worker-form');
+            const isHidden = form.style.display === 'none';
+            form.style.display = isHidden ? '' : 'none';
+            document.getElementById('worker-add-toggle').classList.toggle('active', isHidden);
         });
 
         document.getElementById('worker-form').addEventListener('submit', async (event) => {
@@ -1374,6 +1531,7 @@ async function renderWorkersPage() {
 
         document.querySelectorAll('[data-worker-password]').forEach((button) => {
             button.addEventListener('click', async () => {
+                closeRowMenus();
                 const worker = workers.find((item) => item.id === button.getAttribute('data-worker-password'));
                 if (!worker) return;
                 try {
@@ -1427,6 +1585,7 @@ async function renderWorkersPage() {
 
         document.querySelectorAll('[data-view-assignments]').forEach((button) => {
             button.addEventListener('click', () => {
+                closeRowMenus();
                 const row = document.getElementById(`assignments-${button.getAttribute('data-view-assignments')}`);
                 if (row) row.style.display = row.style.display === 'none' ? '' : 'none';
             });
@@ -1434,6 +1593,7 @@ async function renderWorkersPage() {
 
         document.querySelectorAll('[data-edit-worker]').forEach((button) => {
             button.addEventListener('click', () => {
+                closeRowMenus();
                 const worker = workers.find((item) => item.id === button.getAttribute('data-edit-worker'));
                 if (!worker) return;
                 const card = document.getElementById('edit-worker-card');
@@ -1474,8 +1634,9 @@ async function renderWorkersPage() {
             document.getElementById('edit-worker-card').style.display = 'none';
         });
 
-document.querySelectorAll('[data-toggle-head]').forEach((button) => {
+        document.querySelectorAll('[data-toggle-head]').forEach((button) => {
             button.addEventListener('click', async () => {
+                closeRowMenus();
                 const worker = workers.find((item) => item.id === button.getAttribute('data-toggle-head'));
                 if (!worker) return;
                 if (!confirm(`${worker.isDepartmentHead ? 'Remove' : 'Make'} ${worker.name} ${worker.isDepartmentHead ? 'as' : 'the'} department head of ${worker.department}?`)) return;
