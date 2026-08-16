@@ -11,6 +11,7 @@
     --muted: #64748b;
     --border: rgba(15, 23, 42, 0.08);
     --ease-premium: cubic-bezier(0.22, 1, 0.36, 1);
+    --ease-hero: cubic-bezier(0.16, 1, 0.3, 1);
     --ease-soft: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -87,6 +88,7 @@ header {
     background: rgba(255, 255, 255, 0.9);
     backdrop-filter: blur(18px);
     border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+    transition: background-color 320ms var(--ease-premium), box-shadow 320ms var(--ease-premium), backdrop-filter 320ms var(--ease-premium), border-color 320ms var(--ease-premium);
 }
 
 nav {
@@ -219,7 +221,7 @@ nav {
     cursor: pointer;
     border: none;
     overflow: hidden;
-    transition: transform 260ms var(--ease-premium), box-shadow 260ms var(--ease-premium), background-color 260ms var(--ease-premium), color 260ms var(--ease-premium), opacity 260ms var(--ease-premium);
+    transition: transform 180ms var(--ease-hero), box-shadow 180ms var(--ease-hero), background-color 260ms var(--ease-premium), background-position 420ms var(--ease-premium), color 180ms var(--ease-hero), opacity 180ms var(--ease-hero);
 }
 
 .btn::after {
@@ -234,8 +236,8 @@ nav {
 
 .btn:hover,
 .btn:focus-visible {
-    transform: translateY(-2px) scale(1.02);
-    box-shadow: 0 16px 32px rgba(37, 99, 235, 0.22);
+    transform: translateY(-2px) scale(1.03);
+    box-shadow: 0 20px 42px rgba(37, 99, 235, 0.28);
 }
 
 .btn:hover::after {
@@ -247,9 +249,16 @@ nav {
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, var(--blue), #3b82f6);
+    background: linear-gradient(120deg, var(--blue), #3b82f6 50%, #2563eb);
+    background-size: 200% 200%;
+    background-position: 0% 0%;
     color: white;
     box-shadow: 0 12px 30px rgba(37, 99, 235, 0.18);
+}
+
+.btn-primary:hover,
+.btn-primary:focus-visible {
+    background-position: 100% 50%;
 }
 
 .btn-secondary {
@@ -520,11 +529,25 @@ nav {
 @keyframes fadeUpSoft {
     from {
         opacity: 0;
-        transform: translateY(26px);
+        transform: translateY(20px);
     }
 
     to {
         opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes headlineReveal {
+    from {
+        opacity: 0;
+        filter: blur(10px);
+        transform: translateY(24px);
+    }
+
+    to {
+        opacity: 1;
+        filter: blur(0);
         transform: translateY(0);
     }
 }
@@ -535,18 +558,14 @@ nav {
         transform: translate3d(0, 0, 0) scale(1);
     }
 
-    33% {
-        transform: translate3d(0, -14px, 0) scale(1.05);
-    }
-
-    66% {
-        transform: translate3d(0, 8px, 0) scale(0.98);
+    50% {
+        transform: translate3d(10px, -10px, 0) scale(1.02);
     }
 }
 
 body.page-ready .hero-copy > * {
     opacity: 0;
-    animation: fadeUpSoft 0.7s var(--ease-premium) forwards;
+    animation: fadeUpSoft 0.5s var(--ease-hero) forwards;
 }
 
 body.page-ready .hero-copy > *:nth-child(1),
@@ -555,15 +574,16 @@ body.page-ready .hero-badge {
 }
 
 body.page-ready .hero-copy h1 {
-    animation-delay: 0.16s;
+    animation: headlineReveal 0.55s var(--ease-hero) forwards;
+    animation-delay: 0.14s;
 }
 
 body.page-ready .hero-copy p {
-    animation-delay: 0.27s;
+    animation-delay: 0.23s;
 }
 
 body.page-ready .hero-copy .hero-actions {
-    animation-delay: 0.38s;
+    animation-delay: 0.32s;
 }
 
 body.page-ready .hero-copy .stats-row {
@@ -572,7 +592,7 @@ body.page-ready .hero-copy .stats-row {
 
 body.page-ready .hero-copy .stats-row .stat {
     opacity: 0;
-    animation: fadeUpSoft 0.7s var(--ease-premium) forwards;
+    animation: fadeUpSoft 0.5s var(--ease-hero) forwards;
 }
 
 body.page-ready .hero-copy .stats-row .stat:nth-child(1) {
@@ -589,11 +609,17 @@ body.page-ready .hero-copy .stats-row .stat:nth-child(3) {
 
 body.page-ready .hero-panel {
     opacity: 0;
-    animation: fadeUpSoft 0.8s var(--ease-premium) 0.2s forwards;
+    transform: translateY(28px);
+    transition: opacity 0.7s var(--ease-hero) 0.2s, transform 0.7s var(--ease-hero) 0.2s;
+}
+
+body.page-ready.hero-animating .hero-panel {
+    opacity: 1;
+    transform: translateY(0);
 }
 
 body.page-ready .hero-shape {
-    animation: heroShapes 8s var(--ease-premium) infinite;
+    animation: heroShapes 9s ease-in-out infinite;
 }
 
 body.page-ready .hero-shape-1 {
@@ -1287,7 +1313,10 @@ footer a:hover {
 /* ---------------- Sticky header elevation ---------------- */
 
 header.scrolled {
-    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(24px);
+    box-shadow: 0 14px 36px rgba(15, 23, 42, 0.1);
+    border-bottom-color: rgba(15, 23, 42, 0.1);
 }
 
 /* ---------------- Scroll-snap pages (home) ---------------- */

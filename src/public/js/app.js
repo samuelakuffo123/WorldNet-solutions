@@ -83,9 +83,42 @@ function setupMobileNav() {
 function setupHeaderScrollState() {
     const header = document.querySelector('header');
     if (!header) return;
-    const update = () => header.classList.toggle('scrolled', window.scrollY > 10);
+    const hero = document.querySelector('.hero, .hero-secondary');
+    const threshold = Math.max(hero ? hero.getBoundingClientRect().height * 0.35 : 0, 12);
+    const update = () => header.classList.toggle('scrolled', window.scrollY > threshold);
     update();
     window.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update);
+}
+
+function setupHeroParallax() {
+    const images = document.querySelectorAll('.hero-visual img, .hero-image img');
+    if (!images.length || shouldPreferReducedMotion()) return;
+    let ticking = false;
+    const update = () => {
+        const viewportCenter = window.innerHeight / 2;
+        images.forEach((img) => {
+            const frame = img.closest('.hero-visual, .hero-image');
+            if (!frame) return;
+            const bounds = frame.getBoundingClientRect();
+            if (bounds.bottom < 0 || bounds.top > window.innerHeight) return;
+            const frameCenter = bounds.top + bounds.height / 2;
+            const travel = frameCenter - viewportCenter;
+            const shift = Math.max(-30, Math.min(30, travel * -0.12));
+            img.style.transform = `translate3d(0, ${shift.toFixed(1)}px, 0) scale(1.15)`;
+        });
+        ticking = false;
+    };
+    window.addEventListener('scroll', () => {
+        if (!ticking) {
+            ticking = true;
+            requestAnimationFrame(update);
+        }
+    }, { passive: true });
+    if (window.ResizeObserver) {
+        new ResizeObserver(() => requestAnimationFrame(update)).observe(document.body);
+    }
+    update();
 }
 
 function showToast(message) {
@@ -429,10 +462,10 @@ function setupScrollReveal() {
                     entry.target.classList.remove('reveal', 'is-visible');
                     entry.target.style.transitionDelay = '';
                     entry.target.style.transitionDuration = '';
-                }, 780);
+                }, 820);
             }
         });
-    }, { threshold: 0.14 });
+    }, { threshold: 0.2 });
 
     revealTargets.forEach((element) => {
         element.classList.add('reveal');
@@ -467,7 +500,11 @@ if (document.readyState === 'loading') {
         animateCounters();
         setupScrollReveal();
         setupVisibilityAnimationPause();
+        setupHeroParallax();
         document.body.classList.add('page-ready');
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => document.body.classList.add('hero-animating'));
+        });
         prefillInquiryForm();
         loadHomeServices();
         loadServicesPage();
