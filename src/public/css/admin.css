@@ -1695,105 +1695,441 @@ html[data-theme="dark"] .login-theme-toggle {
     cursor: pointer;
 }
 
-/* ---------- Dark theme ---------- */
+/* ---------- Dark theme ----------
+   Layered, glassmorphic dark surface system.
+   Elevation guide (dark mode):
+   - base   : #0B0F1A -> #0D1220 gradient (body)
+   - e1     : rgba(19, 24, 38, 0.72) + blur  -> panels, cards, stat cards, tables
+   - e2     : #161C2A + blur                  -> topbar, popovers, modals
+   - input  : #0D1220 (recessed)              -> form controls
+*/
 html[data-theme="dark"] {
-    --wn-slate-100: #17233b;
-    --wn-slate-200: #22304d;
-    --wn-slate-400: #7c8ba5;
-    --wn-slate-500: #93a3bd;
-    --wn-slate-700: #cfd9ea;
-    --wn-slate-900: #e8eefb;
-    --wn-border: rgba(160, 180, 215, 0.16);
-    --wn-shadow: 0 18px 45px rgba(0, 0, 0, 0.35);
-    --wn-shadow-lg: 0 28px 68px rgba(0, 0, 0, 0.5);
+    color-scheme: dark;
+    --wn-navy: #0b0f1a;
+    --wn-navy-2: #0d1220;
+    --wn-slate-100: #161c2a;
+    --wn-slate-200: #1b2233;
+    --wn-slate-400: #8b96a9;
+    --wn-slate-500: #9aa5b8;
+    --wn-slate-700: #f5f7fa;
+    --wn-slate-900: #f5f7fa;
+    --wn-border: rgba(255, 255, 255, 0.08);
+    --wn-shadow: 0 18px 45px rgba(0, 0, 0, 0.42), 0 1px 0 0 rgba(255, 255, 255, 0.03);
+    --wn-shadow-lg: 0 28px 68px rgba(0, 0, 0, 0.6);
 }
 
 html[data-theme="dark"] body.admin-body {
-    background: linear-gradient(135deg, #0a1220 0%, #0e1a2f 55%, #0a1626 100%);
+    background: linear-gradient(165deg, #0b0f1a 0%, #0d1220 48%, #0c111d 100%);
+    color: var(--wn-slate-900);
 }
 
-html[data-theme="dark"] .admin-topbar,
-html[data-theme="dark"] .login-card {
-    background: rgba(21, 34, 56, 0.95);
-}
-
+/* ---------- Shell surface ---------- */
 html[data-theme="dark"] .admin-topbar {
-    border-bottom-color: var(--wn-border);
+    background: rgba(13, 18, 32, 0.72);
+    backdrop-filter: blur(18px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
 }
 
-html[data-theme="dark"] .stat-card,
+html[data-theme="dark"] .topbar-title h1 {
+    color: #f5f7fa;
+}
+
+html[data-theme="dark"] .topbar-title p {
+    color: #9aa5b8;
+}
+
+/* ---------- Elevation 1 - content surfaces ---------- */
+html[data-theme="dark"] .panel,
 html[data-theme="dark"] .admin-card,
+html[data-theme="dark"] .stat-card,
 html[data-theme="dark"] table.admin-table,
+html[data-theme="dark"] .roster-card,
+html[data-theme="dark"] .worker-add-panel,
+html[data-theme="dark"] .assignment-item {
+    background: rgba(19, 24, 38, 0.72);
+    backdrop-filter: blur(16px);
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: var(--wn-shadow);
+}
+
+/* ---------- Elevation 2 - floating surfaces ---------- */
 html[data-theme="dark"] .notif-popover,
 html[data-theme="dark"] .credential-modal {
-    background: #142038;
+    background: #161c2a;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: var(--wn-shadow-lg);
 }
 
-html[data-theme="dark"] .stat-card,
-html[data-theme="dark"] .admin-card,
-html[data-theme="dark"] table.admin-table,
-html[data-theme="dark"] .notif-popover {
-    border-color: var(--wn-border);
+/* ---------- Typography ---------- */
+html[data-theme="dark"] .cell-strong,
+html[data-theme="dark"] .admin-table tbody td,
+html[data-theme="dark"] .activity-body strong,
+html[data-theme="dark"] .notif-item strong,
+html[data-theme="dark"] .roster-card .roster-name {
+    color: #f5f7fa;
 }
 
-html[data-theme="dark"] .admin-topbar .icon-button {
-    background: #1a2945;
-    border-color: var(--wn-border);
-    color: #cdd8ec;
+html[data-theme="dark"] .cell-muted,
+html[data-theme="dark"] .panel .panel-sub,
+html[data-theme="dark"] .activity-body p,
+html[data-theme="dark"] .notif-item p,
+html[data-theme="dark"] .roster-card .roster-meta,
+html[data-theme="dark"] .stat-card .stat-label {
+    color: #9aa5b8;
 }
 
-html[data-theme="dark"] .admin-topbar .icon-button:hover {
-    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.4);
+/* Section headers - distinct weight and size, not faded body text */
+html[data-theme="dark"] .panel-header h3,
+html[data-theme="dark"] .panel h3,
+html[data-theme="dark"] .admin-card .card-head h3,
+html[data-theme="dark"] .notif-popover-head strong {
+    color: #f5f7fa;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+}
+
+html[data-theme="dark"] .panel-header h3,
+html[data-theme="dark"] .card-head h3 {
+    font-size: 1.06rem;
+}
+
+/* ---------- Tables ---------- */
+html[data-theme="dark"] .admin-table {
+    color: #f5f7fa;
+    background: transparent;
 }
 
 html[data-theme="dark"] .admin-table thead th {
-    background: #1a2845;
+    background: rgba(255, 255, 255, 0.05);
+    color: #aeb9cc;
 }
 
 html[data-theme="dark"] .admin-table tbody td {
-    border-top: 1px solid rgba(160, 180, 215, 0.1);
+    border-top: 1px solid rgba(255, 255, 255, 0.07);
 }
 
 html[data-theme="dark"] .admin-table tbody tr:hover {
-    background: #1a2a47;
+    background: rgba(255, 255, 255, 0.06);
 }
 
+/* ---------- Quick actions ---------- */
+html[data-theme="dark"] .quick-action {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.08);
+    color: #f5f7fa;
+}
+
+html[data-theme="dark"] .quick-action:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(96, 165, 250, 0.35);
+    box-shadow: 0 12px 26px rgba(37, 99, 235, 0.25);
+    transform: translateX(4px);
+}
+
+html[data-theme="dark"] .quick-action .qa-icon {
+    background: linear-gradient(135deg, #3b82f6, #22d3ee);
+    box-shadow: 0 6px 16px rgba(37, 99, 235, 0.5);
+}
+
+html[data-theme="dark"] .quick-action .qa-arrow {
+    color: #9aa5b8;
+}
+
+/* ---------- Stat cards ---------- */
+html[data-theme="dark"] .stat-card .stat-icon {
+    background: color-mix(in srgb, var(--stat-color, #2563eb) 30%, #131826);
+    color: color-mix(in srgb, var(--stat-color, #2563eb) 60%, #ffffff);
+    box-shadow: 0 8px 22px color-mix(in srgb, var(--stat-color, #2563eb) 45%, transparent);
+}
+
+html[data-theme="dark"] a.stat-card:hover .stat-icon,
+html[data-theme="dark"] a.stat-card:focus-visible .stat-icon {
+    box-shadow: 0 10px 26px var(--stat-color, #2563eb);
+}
+
+html[data-theme="dark"] .stat-card .stat-value {
+    color: #f5f7fa;
+}
+
+/* ---------- Data viz ---------- */
+html[data-theme="dark"] .bar-track {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+html[data-theme="dark"] .bar-fill {
+    background: linear-gradient(90deg, #3b82f6, #22d3ee);
+    box-shadow: 0 0 14px rgba(37, 99, 235, 0.45);
+}
+
+html[data-theme="dark"] .bar-row .bar-label,
+html[data-theme="dark"] .bar-value {
+    color: #cbd5e3;
+}
+
+/* ---------- Activity feed ---------- */
+html[data-theme="dark"] .activity-item {
+    border-bottom-color: rgba(255, 255, 255, 0.07);
+}
+
+html[data-theme="dark"] .activity-item:last-child {
+    border-bottom: 0;
+}
+
+html[data-theme="dark"] .activity-dot {
+    background: #3b82f6;
+    box-shadow: 0 0 0 5px rgba(59, 130, 246, 0.16), 0 0 14px rgba(59, 130, 246, 0.7);
+}
+
+html[data-theme="dark"] .activity-item.inquiry .activity-dot {
+    background: #a78bfa;
+    box-shadow: 0 0 0 5px rgba(167, 139, 250, 0.16), 0 0 14px rgba(167, 139, 250, 0.7);
+}
+
+html[data-theme="dark"] .activity-item.consultation .activity-dot {
+    background: #34d399;
+    box-shadow: 0 0 0 5px rgba(52, 211, 153, 0.16), 0 0 14px rgba(52, 211, 153, 0.7);
+}
+
+/* ---------- Icon buttons ---------- */
+html[data-theme="dark"] .icon-button {
+    background: #131826;
+    border-color: rgba(255, 255, 255, 0.08);
+    color: #9aa5b8;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+}
+
+html[data-theme="dark"] .icon-button:hover {
+    background: #1b2233;
+    border-color: rgba(255, 255, 255, 0.14);
+    color: #f5f7fa;
+    box-shadow: 0 10px 24px rgba(37, 99, 235, 0.28);
+}
+
+/* Notification bell - gradient accent, not a stray strip */
+html[data-theme="dark"] .icon-button .bell-dot {
+    background: linear-gradient(135deg, #f43f5e, #f97316);
+    border: 2px solid #0d1220;
+    box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.2), 0 0 14px rgba(244, 63, 94, 0.75);
+}
+
+/* ---------- Status pills ---------- */
+html[data-theme="dark"] .status-pill.new,
+html[data-theme="dark"] .status-pill.pending {
+    background: rgba(251, 191, 36, 0.14);
+    color: #fbbf24;
+}
+
+html[data-theme="dark"] .status-pill.contacted,
+html[data-theme="dark"] .status-pill.confirmed {
+    background: rgba(96, 165, 250, 0.16);
+    color: #93c5fd;
+}
+
+html[data-theme="dark"] .status-pill.resolved,
+html[data-theme="dark"] .status-pill.completed {
+    background: rgba(74, 222, 128, 0.15);
+    color: #4ade80;
+}
+
+html[data-theme="dark"] .status-pill.cancelled,
+html[data-theme="dark"] .status-pill.withdrawn {
+    background: rgba(251, 113, 133, 0.15);
+    color: #fda4af;
+}
+
+html[data-theme="dark"] .status-pill.head-pill {
+    background: rgba(167, 139, 250, 0.16);
+    color: #c4b5fd;
+}
+
+/* ---------- Buttons ---------- */
+html[data-theme="dark"] .btn-wn-secondary {
+    background: #131826;
+    border-color: rgba(96, 165, 250, 0.35);
+    color: #93c5fd;
+}
+
+html[data-theme="dark"] .btn-wn-secondary:hover {
+    background: #1a2133;
+    box-shadow: 0 12px 24px rgba(37, 99, 235, 0.22);
+}
+
+html[data-theme="dark"] .btn-wn-ghost {
+    background: transparent;
+    border-color: rgba(255, 255, 255, 0.16);
+    color: #cbd5e3;
+}
+
+html[data-theme="dark"] .btn-wn-danger {
+    background: rgba(251, 113, 133, 0.12);
+    border-color: rgba(251, 113, 133, 0.28);
+    color: #fda4af;
+}
+
+html[data-theme="dark"] .btn-wn-danger:hover {
+    background: rgba(251, 113, 133, 0.18);
+}
+
+/* ---------- Forms ---------- */
+html[data-theme="dark"] .admin-content input,
+html[data-theme="dark"] .admin-content select,
+html[data-theme="dark"] .admin-content textarea,
+html[data-theme="dark"] .worker-content input,
+html[data-theme="dark"] .worker-content select,
+html[data-theme="dark"] .worker-content textarea,
 html[data-theme="dark"] .login-form input,
 html[data-theme="dark"] .profile-form input {
-    background: #16233d;
-    color: #e8eefb;
+    background: #0d1220;
+    border-color: rgba(255, 255, 255, 0.1);
+    color: #f5f7fa;
 }
 
+html[data-theme="dark"] .admin-content input:focus,
+html[data-theme="dark"] .admin-content select:focus,
+html[data-theme="dark"] .admin-content textarea:focus,
+html[data-theme="dark"] .worker-content input:focus,
+html[data-theme="dark"] .worker-content select:focus,
+html[data-theme="dark"] .worker-content textarea:focus,
 html[data-theme="dark"] .login-form input:focus,
 html[data-theme="dark"] .profile-form input:focus {
-    background: #1b2a47;
+    background: #101627;
+    border-color: rgba(96, 165, 250, 0.5);
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.2);
+}
+
+html[data-theme="dark"] .admin-form label,
+html[data-theme="dark"] .login-form label,
+html[data-theme="dark"] .profile-form label {
+    color: #cbd5e3;
+}
+
+/* ---------- Roster & misc surfaces ---------- */
+html[data-theme="dark"] .roster-card {
+    background: linear-gradient(135deg, rgba(37, 99, 235, 0.12), rgba(14, 165, 233, 0.08));
+    border-color: rgba(96, 165, 250, 0.2);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.3);
+}
+
+html[data-theme="dark"] .worker-add-panel {
+    background: linear-gradient(135deg, rgba(37, 99, 235, 0.1), rgba(14, 165, 233, 0.06));
+    border-color: rgba(96, 165, 250, 0.2);
+}
+
+html[data-theme="dark"] .assignments-row td {
+    background: #0d1220;
+}
+
+html[data-theme="dark"] .assignment-item {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="dark"] .worker-welcome h1,
+html[data-theme="dark"] .worker-stats .stat-card strong,
+html[data-theme="dark"] .dept-stats .stat-card strong {
+    color: #f5f7fa;
+}
+
+html[data-theme="dark"] .worker-welcome p,
+html[data-theme="dark"] .worker-stats .stat-card span,
+html[data-theme="dark"] .dept-stats .stat-card span {
+    color: #9aa5b8;
+}
+
+/* ---------- Login & auth ---------- */
+html[data-theme="dark"] .login-card {
+    background: rgba(16, 23, 38, 0.82);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+html[data-theme="dark"] .login-card h1 {
+    color: #f5f7fa;
+}
+
+html[data-theme="dark"] .login-card .login-sub {
+    color: #9aa5b8;
 }
 
 html[data-theme="dark"] .auth-tabs {
-    background: #17233b;
+    background: #161c2a;
 }
 
+html[data-theme="dark"] .auth-tab {
+    color: #9aa5b8;
+}
+
+html[data-theme="dark"] .auth-tab.active {
+    background: #222a3d;
+    color: #f5f7fa;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+html[data-theme="dark"] .auth-success {
+    background: rgba(34, 197, 94, 0.12);
+    border-color: rgba(74, 222, 128, 0.3);
+    color: #86efac;
+}
+
+html[data-theme="dark"] .password-toggle:hover {
+    color: #f5f7fa;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+/* ---------- Notifications & modals ---------- */
 html[data-theme="dark"] .notif-popover-head {
-    background: #17233b;
+    background: #161c2a;
+    border-bottom-color: rgba(255, 255, 255, 0.08);
 }
 
 html[data-theme="dark"] .notif-item {
-    border-bottom-color: rgba(160, 180, 215, 0.1);
+    border-bottom-color: rgba(255, 255, 255, 0.07);
+}
+
+html[data-theme="dark"] .notif-item:hover {
+    background: rgba(255, 255, 255, 0.04);
 }
 
 html[data-theme="dark"] .notif-item.unread {
     background: rgba(37, 99, 235, 0.14);
 }
 
+html[data-theme="dark"] .notif-item .notif-time {
+    color: #7e8aa0;
+}
+
+html[data-theme="dark"] .credential-modal {
+    color: #f5f7fa;
+}
+
 html[data-theme="dark"] .credential-modal .credential-row {
-    background: #17233b;
+    background: #101627;
+    border-color: rgba(255, 255, 255, 0.1);
 }
 
+html[data-theme="dark"] .credential-modal .credential-row span {
+    color: #9aa5b8;
+}
+
+html[data-theme="dark"] .credential-modal .credential-close {
+    color: #9aa5b8;
+}
+
+/* ---------- Welcome hero & toast ---------- */
+html[data-theme="dark"] .welcome-hero {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="dark"] .wn-toast {
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* ---------- Worker portal ---------- */
 html[data-theme="dark"] .worker-app {
-    background: #0d1526;
+    background: linear-gradient(165deg, #0b0f1a 0%, #0d1220 48%, #0c111d 100%);
 }
 
-html[data-theme="dark"] .worker-user .avatar-photo,
 html[data-theme="dark"] .avatar-photo {
-    background: #16233d;
+    background: #161c2a;
 }
