@@ -132,6 +132,82 @@ nav {
     box-shadow: 0 12px 30px rgba(37, 99, 235, 0.12);
 }
 
+.nav-dropdown {
+    position: relative;
+}
+
+.nav-dropdown-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    background: none;
+    border: 0;
+    padding: 0.55rem 0.85rem;
+    border-radius: 999px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 240ms var(--ease-premium), box-shadow 240ms var(--ease-premium), background 240ms var(--ease-premium), color 240ms var(--ease-premium), opacity 240ms var(--ease-premium);
+}
+
+.nav-dropdown-trigger:hover,
+.nav-dropdown-trigger:focus-visible,
+.nav-dropdown-trigger.active {
+    background: rgba(37, 99, 235, 0.12);
+    color: var(--blue);
+    transform: translateY(-1px) scale(1.02);
+    box-shadow: 0 12px 30px rgba(37, 99, 235, 0.12);
+}
+
+.nav-dropdown-chevron {
+    width: 14px;
+    height: 14px;
+    transition: transform 240ms var(--ease-premium);
+}
+
+.nav-dropdown[data-open="true"] .nav-dropdown-chevron {
+    transform: rotate(180deg);
+}
+
+.nav-dropdown-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    min-width: 210px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.5rem;
+    background: #ffffff;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: 14px;
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16);
+    opacity: 0;
+    transform: translateY(-6px);
+    pointer-events: none;
+    transition: opacity 200ms var(--ease-premium), transform 200ms var(--ease-premium);
+}
+
+.nav-dropdown:hover .nav-dropdown-menu,
+.nav-dropdown[data-open="true"] .nav-dropdown-menu {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
+.nav-dropdown-menu a {
+    padding: 0.55rem 0.8rem;
+    border-radius: 10px;
+}
+
+.nav-dropdown-menu a:hover,
+.nav-dropdown-menu a:focus-visible,
+.nav-dropdown-menu a.active {
+    transform: none;
+}
+
 .btn {
     position: relative;
     display: inline-flex;
@@ -1177,6 +1253,34 @@ footer a:hover {
     .nav-links .btn {
         margin-top: 0.5rem;
         justify-content: center;
+    }
+
+    .nav-dropdown {
+        width: 100%;
+    }
+
+    .nav-dropdown-trigger {
+        width: 100%;
+        justify-content: space-between;
+        padding: 0.7rem 0.9rem;
+    }
+
+    .nav-dropdown-menu {
+        position: static;
+        min-width: 0;
+        width: 100%;
+        margin: 0.15rem 0 0.4rem 0.4rem;
+        padding: 0.35rem;
+        background: rgba(37, 99, 235, 0.06);
+        border: 0;
+        border-radius: 12px;
+        box-shadow: none;
+        transform: none;
+        display: none;
+    }
+
+    .nav-dropdown[data-open="true"] .nav-dropdown-menu {
+        display: flex;
     }
 }
 

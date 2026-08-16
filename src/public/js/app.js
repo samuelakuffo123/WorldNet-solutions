@@ -24,6 +24,43 @@ function setActiveNav() {
         const href = link.getAttribute('href');
         link.classList.toggle('active', href === current || (current === '/' && href === '/index.html'));
     });
+    document.querySelectorAll('[data-nav-dropdown]').forEach((dropdown) => {
+        const trigger = dropdown.querySelector('.nav-dropdown-trigger');
+        if (!trigger) return;
+        const active = Array.from(dropdown.querySelectorAll('[data-nav-link]')).some((link) => {
+            const href = link.getAttribute('href');
+            return href === current;
+        });
+        trigger.classList.toggle('active', active);
+    });
+}
+
+function closeAllNavDropdowns() {
+    document.querySelectorAll('[data-nav-dropdown]').forEach((dropdown) => {
+        dropdown.setAttribute('data-open', 'false');
+        const trigger = dropdown.querySelector('.nav-dropdown-trigger');
+        if (trigger) trigger.setAttribute('aria-expanded', 'false');
+    });
+}
+
+function setupNavDropdowns() {
+    document.querySelectorAll('[data-nav-dropdown]').forEach((dropdown) => {
+        const trigger = dropdown.querySelector('.nav-dropdown-trigger');
+        if (!trigger) return;
+        trigger.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            const open = dropdown.getAttribute('data-open') !== 'true';
+            closeAllNavDropdowns();
+            dropdown.setAttribute('data-open', String(open));
+            trigger.setAttribute('aria-expanded', String(open));
+        });
+        dropdown.addEventListener('click', (event) => event.stopPropagation());
+    });
+    document.addEventListener('click', closeAllNavDropdowns);
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') closeAllNavDropdowns();
+    });
 }
 
 function setupMobileNav() {
@@ -38,6 +75,7 @@ function setupMobileNav() {
         link.addEventListener('click', () => {
             toggle.setAttribute('aria-expanded', 'false');
             document.body.classList.remove('menu-open');
+            closeAllNavDropdowns();
         });
     });
 }
@@ -424,6 +462,7 @@ if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         setActiveNav();
         setupMobileNav();
+        setupNavDropdowns();
         setupHeaderScrollState();
         animateCounters();
         setupScrollReveal();
