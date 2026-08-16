@@ -1231,7 +1231,7 @@ async function renderWorkersPage() {
                                 return `
                                 <tr>
                                     <td class="cell-strong">${escapeHtml(worker.id)}</td>
-                                    <td class="cell-strong">${escapeHtml(worker.name)}</td>
+                                    <td class="cell-strong"><span class="worker-name-cell">${renderAvatar(worker, 30)}<span>${escapeHtml(worker.name)}</span></span></td>
                                     <td class="cell-muted">${escapeHtml(worker.email || '—')}</td>
                                     <td class="cell-muted">${escapeHtml(worker.department)}</td>
                                     <td class="cell-muted">${escapeHtml(worker.role)}</td>

@@ -756,6 +756,20 @@ table.admin-table {
     color: var(--wn-slate-900);
 }
 
+.worker-name-cell {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.worker-name-cell .avatar {
+    box-shadow: none;
+}
+
+.worker-name-cell .avatar-photo {
+    box-shadow: 0 4px 10px rgba(124, 58, 237, 0.28);
+}
+
 .cell-muted {
     color: var(--wn-slate-500);
     font-size: 0.8rem;
