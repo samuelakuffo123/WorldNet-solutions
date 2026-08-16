@@ -556,7 +556,7 @@ function buildDashboard(admin) {
             </div>
         </section>
 
-        <div class="panel-grid" style="grid-template-columns: 1fr 1fr">
+        <div class="panel-grid panel-grid-split">
             <div class="panel">
                 <div class="panel-header">
                     <h3>Team roster</h3>
