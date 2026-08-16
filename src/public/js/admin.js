@@ -375,22 +375,24 @@ function buildSidebar(activeKey) {
 function buildTopbar(pageTitle, pageSubtitle) {
     return `
         <header class="admin-topbar">
-            <button class="icon-button sidebar-toggle" id="sidebar-toggle" title="Menu">${ICONS.menu}</button>
-            <div class="topbar-title">
-                <h1>${pageTitle}</h1>
-                <p>${pageSubtitle}</p>
-            </div>
-            <div class="topbar-actions">
-                <button class="icon-button theme-toggle" id="theme-toggle" title="Switch to dark mode"><span class="theme-icon">☾</span></button>
-                <button class="icon-button" id="profile-btn" title="Edit your profile">${renderAvatar(getAdminProfile(), 26)}</button>
-                <div style="position:relative">
-                    <button class="icon-button" id="bell-btn" title="Notifications">${ICONS.bell}<span class="bell-dot" id="bell-dot"></span></button>
-                    <div class="notif-popover" id="notif-popover">
-                        <div class="notif-popover-head">
-                            <strong>Notifications</strong>
-                            <button class="btn-wn btn-wn-ghost" id="mark-all-read" type="button" style="padding:0.3rem 0.6rem; font-size:0.74rem">Mark all read</button>
+            <div class="topbar-inner">
+                <button class="icon-button sidebar-toggle" id="sidebar-toggle" title="Menu">${ICONS.menu}</button>
+                <div class="topbar-title">
+                    <h1>${pageTitle}</h1>
+                    <p>${pageSubtitle}</p>
+                </div>
+                <div class="topbar-actions">
+                    <button class="icon-button theme-toggle" id="theme-toggle" title="Switch to dark mode"><span class="theme-icon">☾</span></button>
+                    <button class="icon-button" id="profile-btn" title="Edit your profile">${renderAvatar(getAdminProfile(), 26)}</button>
+                    <div style="position:relative">
+                        <button class="icon-button" id="bell-btn" title="Notifications">${ICONS.bell}<span class="bell-dot" id="bell-dot"></span></button>
+                        <div class="notif-popover" id="notif-popover">
+                            <div class="notif-popover-head">
+                                <strong>Notifications</strong>
+                                <button class="btn-wn btn-wn-ghost" id="mark-all-read" type="button" style="padding:0.3rem 0.6rem; font-size:0.74rem">Mark all read</button>
+                            </div>
+                            <div class="notif-list" id="notif-list"></div>
                         </div>
-                        <div class="notif-list" id="notif-list"></div>
                     </div>
                 </div>
             </div>
