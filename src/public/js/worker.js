@@ -178,6 +178,20 @@ function processImageFile(file, maxSize = 480, quality = 0.72) {
     });
 }
 
+function readPdfFile(file) {
+    return new Promise((resolve, reject) => {
+        if (!file) return reject(new Error('Please choose a PDF file.'));
+        if (file.type !== 'application/pdf' && !/\.pdf$/i.test(file.name)) {
+            return reject(new Error('Reports must be PDF files.'));
+        }
+        if (file.size > 8 * 1024 * 1024) return reject(new Error('PDF must be 8 MB or smaller.'));
+        const reader = new FileReader();
+        reader.onload = () => resolve({ dataUrl: reader.result, fileName: file.name, fileSize: file.size });
+        reader.onerror = () => reject(new Error('Could not read the file.'));
+        reader.readAsDataURL(file);
+    });
+}
+
 function openProfileModal() {
     const profile = getWorkerProfile() || {};
     const existing = document.getElementById('profile-overlay');
@@ -320,7 +334,7 @@ function buildWorkerHeader(worker) {
                 ${renderAvatar(worker, 40)}
                 <div class="user-info">
                     <strong>${escapeHtml(worker.name)}</strong>
-                    <span>${escapeHtml(worker.department)} · ${escapeHtml(worker.role)}</span>
+                    <span>${escapeHtml(worker.department)} · ${escapeHtml(worker.role)}${worker.isDepartmentHead ? ' · Head' : ''}</span>
                 </div>
                 <button class="icon-button theme-toggle" id="worker-theme-toggle" title="Switch to dark mode" style="background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.14); color:#fff"><span class="theme-icon">☾</span></button>
                 <button class="icon-button" id="worker-logout-btn" title="Log out" style="background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.14); color:#fff">
@@ -376,6 +390,159 @@ function renderWorkerDashboard(worker, assignments) {
     wireThemeToggle();
 }
 
+/* ---------------- Worker reports ---------------- */
+
+function loadWorkerReports(worker) {
+    const main = document.querySelector('#worker-app .worker-content');
+    if (!main) return;
+    main.insertAdjacentHTML('beforeend', `
+        <div class="admin-card" id="worker-reports-card" style="margin-top:1.5rem">
+            <div class="card-head">
+                <h3>Submit a report</h3>
+                <span class="cell-muted">Send a PDF report straight to the admin</span>
+            </div>
+            <form class="admin-form" id="report-form">
+                <div class="form-row">
+                    <div><label>Report title</label><input name="title" placeholder="e.g. Site survey - Ecobank Accra" required /></div>
+                    <div><label>PDF file</label><input type="file" name="file" accept="application/pdf,.pdf" required /></div>
+                </div>
+                <div><label>Notes</label><textarea name="notes" rows="3" placeholder="Optional summary for the admin"></textarea></div>
+                <button type="submit" class="btn-wn btn-wn-primary">Send report</button>
+            </form>
+            <div id="worker-reports-list" style="margin-top:0.9rem"></div>
+        </div>`);
+
+    const form = document.getElementById('report-form');
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const fileInput = form.querySelector('input[name="file"]');
+        const submitButton = form.querySelector('button[type="submit"]');
+        const title = form.title.value.trim();
+        const notes = form.notes.value.trim();
+        if (!title) {
+            showToast('Please enter a report title.');
+            return;
+        }
+        submitButton.disabled = true;
+        submitButton.textContent = 'Sending…';
+        try {
+            const file = fileInput.files && fileInput.files[0];
+            const pdf = await readPdfFile(file);
+            await workerApi('/api/worker/reports', {
+                method: 'POST',
+                body: JSON.stringify({ title, notes, fileName: pdf.fileName, fileSize: pdf.fileSize, fileData: pdf.dataUrl })
+            });
+            form.reset();
+            showToast('Report sent to the admin.');
+            renderWorkerReports(worker.id);
+        } catch (error) {
+            showToast(error.message);
+        } finally {
+            submitButton.disabled = false;
+            submitButton.textContent = 'Send report';
+        }
+    });
+
+    renderWorkerReports(worker.id);
+}
+
+async function renderWorkerReports(workerId) {
+    const list = document.getElementById('worker-reports-list');
+    if (!list) return;
+    try {
+        const reports = await workerApi('/api/worker/reports');
+        list.innerHTML = reports.length ? `
+            <div class="admin-table-wrap">
+                <table class="admin-table">
+                    <thead><tr><th>Title</th><th>File</th><th>Submitted</th><th>Status</th><th>Action</th></tr></thead>
+                    <tbody>
+                        ${reports.map((report) => `
+                            <tr>
+                                <td class="cell-strong">${escapeHtml(report.title)}${report.notes ? `<br/><span class="cell-muted">${escapeHtml(report.notes)}</span>` : ''}</td>
+                                <td class="cell-muted">${escapeHtml(report.fileName)} · ${(report.fileSize / 1024).toFixed(0)} KB</td>
+                                <td class="cell-muted">${formatDate(report.submittedAt)}</td>
+                                <td><span class="status-pill ${report.read ? 'contacted' : 'new'}">${report.read ? 'Read' : 'Submitted'}</span></td>
+                                <td><a class="btn-wn btn-wn-secondary" href="${report.fileData}" download="${escapeHtml(report.fileName)}">Download</a></td>
+                            </tr>`).join('')}
+                    </tbody>
+                </table>
+            </div>`
+            : '<p class="cell-muted" style="padding:0.5rem 0">You have not submitted any reports yet.</p>';
+    } catch (error) {
+        list.innerHTML = `<p class="cell-muted">${escapeHtml(error.message)}</p>`;
+    }
+}
+
+/* ---------------- Department head overview ---------------- */
+
+async function loadWorkerDepartment(worker) {
+    const main = document.querySelector('#worker-app .worker-content');
+    if (!main || !worker.isDepartmentHead) return;
+    let department;
+    try {
+        department = await workerApi('/api/worker/department');
+    } catch (_error) {
+        return;
+    }
+    main.insertAdjacentHTML('beforeend', `
+        <div class="admin-card" id="department-overview-card" style="margin-top:1.5rem">
+            <div class="card-head">
+                <h3>Department overview - ${escapeHtml(department.department)}</h3>
+                <span class="cell-muted">${department.workers.length} member${department.workers.length === 1 ? '' : 's'}</span>
+            </div>
+            <div class="roster-grid" style="margin-top:0.4rem">
+                ${department.workers.map((member) => `
+                    <div class="roster-card">
+                        <div class="roster-name">${renderAvatar(member, 30)}${escapeHtml(member.name)}${member.id === worker.id ? '<span class="status-pill new head-pill">You</span>' : ''}</div>
+                        <p class="roster-meta">${escapeHtml(member.role)}</p>
+                    </div>`).join('')}
+            </div>
+            <div class="admin-table-wrap" style="margin-top:1rem">
+                <table class="admin-table">
+                    <thead><tr><th>Requester</th><th>Preferred</th><th>Notes</th><th>Assigned to</th><th>Status</th><th>Action</th></tr></thead>
+                    <tbody>
+                        ${department.consultations.length ? department.consultations.map((item) => `
+                            <tr>
+                                <td class="cell-strong">${escapeHtml(item.name)}<br/><span class="cell-muted">${escapeHtml(item.email)} · ${escapeHtml(item.phone)}</span></td>
+                                <td class="cell-muted">${escapeHtml(item.preferred_date)} @ ${escapeHtml(item.preferred_time)}</td>
+                                <td class="cell-muted" style="max-width:200px">${escapeHtml(item.notes || '—')}</td>
+                                <td class="cell-muted">${escapeHtml(item.assignedWorker || 'Unassigned')}</td>
+                                <td><span class="status-pill ${statusClass(item.status)}">${escapeHtml(item.status)}</span></td>
+                                <td>
+                                    <div style="display:flex; gap:0.4rem; align-items:center; flex-wrap:wrap">
+                                        <select data-head-status="${item.id}" style="border:1px solid var(--wn-border); border-radius:0.7rem; padding:0.4rem 0.5rem; font:inherit; font-size:0.8rem">
+                                            <option value="pending" ${item.status === 'pending' ? 'selected' : ''}>Pending</option>
+                                            <option value="confirmed" ${item.status === 'confirmed' ? 'selected' : ''}>Confirmed</option>
+                                            <option value="completed" ${item.status === 'completed' ? 'selected' : ''}>Completed</option>
+                                            <option value="cancelled" ${item.status === 'cancelled' ? 'selected' : ''}>Cancelled</option>
+                                        </select>
+                                        <button class="btn-wn btn-wn-secondary" data-head-save="${item.id}">Save</button>
+                                    </div>
+                                </td>
+                            </tr>`).join('') : '<tr><td colspan="6" class="cell-muted">No consultations assigned to your department yet.</td></tr>'}
+                    </tbody>
+                </table>
+            </div>
+        </div>`);
+
+    document.querySelectorAll('[data-head-save]').forEach((button) => {
+        button.addEventListener('click', async () => {
+            const id = button.getAttribute('data-head-save');
+            const select = document.querySelector(`[data-head-status="${id}"]`);
+            try {
+                await workerApi(`/api/worker/consultations/${id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ status: select.value })
+                });
+                showToast('Status updated');
+                loadWorkerDepartment(worker);
+            } catch (error) {
+                showToast(error.message);
+            }
+        });
+    });
+}
+
 function initWorker() {
     if (!getWorkerToken()) {
         window.location.href = '/admin/login.html';
@@ -385,6 +552,10 @@ function initWorker() {
         .then((data) => {
             localStorage.setItem(WORKER_PROFILE_KEY, JSON.stringify(data.worker));
             renderWorkerDashboard(data.worker, data.assignments || []);
+            loadWorkerReports(data.worker);
+            if (data.worker.isDepartmentHead) {
+                loadWorkerDepartment(data.worker);
+            }
         })
         .catch((error) => {
             if (error.message.includes('token') || error.message.includes('Unauthorized')) {

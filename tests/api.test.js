@@ -926,3 +926,178 @@ test('users can update their name and profile photo via /api/profile', async () 
         await cleanup();
     }
 });
+
+test('workers can submit PDF reports and admins can review them', async () => {
+    const { baseUrl, cleanup } = await startTestServer();
+    try {
+        const workerLogin = await fetch(`${baseUrl}/api/worker/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: 'ama.boateng@worldnetict.com', password: 'worker123' })
+        });
+        const workerBody = await workerLogin.json();
+        const workerHeaders = { 'Content-Type': 'application/json', Authorization: `Bearer ${workerBody.token}` };
+
+        const adminLogin = await fetch(`${baseUrl}/api/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: 'admin@worldnetict.com', password: 'admin123' })
+        });
+        const { token } = await adminLogin.json();
+        const adminHeaders = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
+
+        const missingTitle = await fetch(`${baseUrl}/api/worker/reports`, {
+            method: 'POST',
+            headers: workerHeaders,
+            body: JSON.stringify({ fileData: 'data:application/pdf;base64,' + Buffer.from('%PDF-1.4\n').toString('base64') })
+        });
+        assert.equal(missingTitle.status, 400);
+
+        const missingFile = await fetch(`${baseUrl}/api/worker/reports`, {
+            method: 'POST',
+            headers: workerHeaders,
+            body: JSON.stringify({ title: 'Site Survey Report' })
+        });
+        assert.equal(missingFile.status, 400);
+
+        const notPdf = await fetch(`${baseUrl}/api/worker/reports`, {
+            method: 'POST',
+            headers: workerHeaders,
+            body: JSON.stringify({ title: 'Bogus', fileData: 'data:image/png;base64,AAAA' })
+        });
+        assert.equal(notPdf.status, 400);
+
+        const submitResponse = await fetch(`${baseUrl}/api/worker/reports`, {
+            method: 'POST',
+            headers: workerHeaders,
+            body: JSON.stringify({
+                title: 'Site Survey Report',
+                notes: 'Inspected two new branch sites.',
+                fileName: 'survey.pdf',
+                fileSize: 1234,
+                fileData: 'data:application/pdf;base64,' + Buffer.from('%PDF-1.4 survey report body').toString('base64')
+            })
+        });
+        assert.equal(submitResponse.status, 201);
+        const submitted = await submitResponse.json();
+        assert.equal(submitted.report.title, 'Site Survey Report');
+        assert.equal(submitted.report.workerName, 'Ama Boateng');
+        assert.equal(submitted.report.read, false);
+
+        const workerList = await (await fetch(`${baseUrl}/api/worker/reports`, { headers: workerHeaders })).json();
+        assert.ok(workerList.some((report) => report.id === submitted.report.id));
+
+        const adminList = await (await fetch(`${baseUrl}/api/admin/reports`, { headers: adminHeaders })).json();
+        assert.ok(adminList.some((report) => report.id === submitted.report.id));
+
+        const markRead = await fetch(`${baseUrl}/api/admin/reports/${submitted.report.id}`, {
+            method: 'PUT',
+            headers: adminHeaders,
+            body: JSON.stringify({ read: true })
+        });
+        assert.equal(markRead.status, 200);
+        assert.equal((await markRead.json()).read, true);
+
+        const markUnread = await fetch(`${baseUrl}/api/admin/reports/${submitted.report.id}`, {
+            method: 'PUT',
+            headers: adminHeaders,
+            body: JSON.stringify({ read: false })
+        });
+        assert.equal((await markUnread.json()).read, false);
+
+        const deleteResponse = await fetch(`${baseUrl}/api/admin/reports/${submitted.report.id}`, {
+            method: 'DELETE',
+            headers: adminHeaders
+        });
+        assert.equal(deleteResponse.status, 200);
+        const afterDelete = await (await fetch(`${baseUrl}/api/admin/reports`, { headers: adminHeaders })).json();
+        assert.ok(!afterDelete.some((report) => report.id === submitted.report.id));
+    } finally {
+        await cleanup();
+    }
+});
+
+test('department head workers can view and update their department; regular workers cannot', async () => {
+    const { baseUrl, cleanup } = await startTestServer();
+    try {
+        const adminLogin = await fetch(`${baseUrl}/api/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: 'admin@worldnetict.com', password: 'admin123' })
+        });
+        const { token } = await adminLogin.json();
+        const adminHeaders = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
+
+        const makeHead = await fetch(`${baseUrl}/api/admin/workers/WNS-001`, {
+            method: 'PUT',
+            headers: adminHeaders,
+            body: JSON.stringify({ isDepartmentHead: true })
+        });
+        assert.equal(makeHead.status, 200);
+        assert.equal((await makeHead.json()).isDepartmentHead, true);
+
+        const consultationResponse = await fetch(`${baseUrl}/api/consultations`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name: 'Ebo Quaye',
+                company: 'EboFix',
+                email: 'ebo-dept@example.com',
+                phone: '+233200000099',
+                preferred_date: '2026-09-01',
+                preferred_time: '11:00'
+            })
+        });
+        const consultationBody = await consultationResponse.json();
+
+        const assign = await fetch(`${baseUrl}/api/consultations/${consultationBody.consultation.id}`, {
+            method: 'PUT',
+            headers: adminHeaders,
+            body: JSON.stringify({ assignedDepartment: 'Infrastructure' })
+        });
+        assert.equal(assign.status, 200);
+
+        const headLogin = await fetch(`${baseUrl}/api/worker/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: 'ama.boateng@worldnetict.com', password: 'worker123' })
+        });
+        const headBody = await headLogin.json();
+        assert.equal(headBody.worker.isDepartmentHead, true);
+        const headHeaders = { 'Content-Type': 'application/json', Authorization: `Bearer ${headBody.token}` };
+
+        const overview = await (await fetch(`${baseUrl}/api/worker/department`, { headers: headHeaders })).json();
+        assert.equal(overview.department, 'Infrastructure');
+        assert.ok(overview.workers.some((worker) => worker.id === 'WNS-001'));
+        assert.ok(overview.consultations.some((item) => item.id === consultationBody.consultation.id));
+
+        const updateStatus = await fetch(`${baseUrl}/api/worker/consultations/${consultationBody.consultation.id}`, {
+            method: 'PUT',
+            headers: headHeaders,
+            body: JSON.stringify({ status: 'confirmed' })
+        });
+        assert.equal(updateStatus.status, 200);
+        assert.equal((await updateStatus.json()).status, 'confirmed');
+
+        const kofiLogin = await fetch(`${baseUrl}/api/worker/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: 'kofi.mensah@worldnetict.com', password: 'worker123' })
+        });
+        const kofiBody = await kofiLogin.json();
+        assert.equal(kofiBody.worker.isDepartmentHead, false);
+        const kofiHeaders = { 'Content-Type': 'application/json', Authorization: `Bearer ${kofiBody.token}` };
+
+        const kofiOverview = await fetch(`${baseUrl}/api/worker/department`, { headers: kofiHeaders });
+        assert.equal(kofiOverview.status, 403);
+
+        const kofiUpdate = await fetch(`${baseUrl}/api/worker/consultations/${consultationBody.consultation.id}`, {
+            method: 'PUT',
+            headers: kofiHeaders,
+            body: JSON.stringify({ status: 'completed' })
+        });
+        assert.equal(kofiUpdate.status, 403);
+    } finally {
+        await cleanup();
+    }
+});

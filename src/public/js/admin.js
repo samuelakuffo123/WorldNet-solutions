@@ -302,7 +302,8 @@ const ICONS = {
     eye: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>',
     eyeOff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>',
     check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
-    departments: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v14M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M9 11h.01M15 11h.01M9 15h.01M15 15h.01"/></svg>'
+    departments: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v14M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M9 11h.01M15 11h.01M9 15h.01M15 15h.01"/></svg>',
+    reports: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M16 13H8M16 17H8M10 9H8"/></svg>'
 };
 
 /* ---------------- Shared shell ---------------- */
@@ -315,12 +316,16 @@ const NAV_ITEMS = [
     { key: 'portfolio', label: 'Portfolio', href: '/admin/records.html?type=portfolio', icon: 'portfolio' },
     { key: 'workers', label: 'Workers', href: '/admin/workers.html', icon: 'team' },
     { key: 'departments', label: 'Departments', href: '/admin/departments.html', icon: 'departments' },
-    { key: 'team', label: 'Team', href: '/admin/dashboard.html#team', icon: 'team' }
+    { key: 'reports', label: 'Reports', href: '/admin/reports.html', icon: 'reports' }
 ];
 
 function getCurrentPageKey() {
+    if (window.location.pathname === '/admin/reports.html') return 'reports';
+    const hash = window.location.hash.replace('#', '');
     const pathname = window.location.pathname;
-    if (pathname === '/admin/dashboard.html') return 'dashboard';
+    if (pathname === '/admin/dashboard.html') {
+        return hash === 'team' ? 'team' : 'dashboard';
+    }
     if (pathname === '/admin/consultations.html') return 'consultations';
     if (pathname === '/admin/workers.html') return 'workers';
     if (pathname === '/admin/departments.html') return 'departments';
@@ -512,6 +517,7 @@ function buildDashboard(admin) {
             ${statCard('consultations', 'Consultations', 'stats-consultations', '#0f766e', 'consultations')}
             ${statCard('portfolio', 'Portfolio', 'stats-portfolio', '#b45309', 'portfolio')}
             ${statCard('workers', 'Team members', 'stats-workers', '#0ea5e9', 'team')}
+            ${statCard('reports', 'Reports', 'stats-reports', '#9333ea', 'reports')}
             ${statCard('notifications', 'New alerts', 'stats-notifications', '#f43f5e', 'bell')}
         </section>
 
@@ -536,6 +542,10 @@ function buildDashboard(admin) {
                     </a>
                     <a class="quick-action" href="/admin/records.html?type=portfolio">
                         <span class="qa-icon">${ICONS.portfolio}</span> Portfolio items
+                        <span class="qa-arrow">${ICONS.arrowRight}</span>
+                    </a>
+                    <a class="quick-action" href="/admin/reports.html">
+                        <span class="qa-icon">${ICONS.reports}</span> Review worker reports
                         <span class="qa-arrow">${ICONS.arrowRight}</span>
                     </a>
                 </div>
@@ -746,6 +756,7 @@ async function loadDashboard() {
             'stats-consultations': stats.consultations,
             'stats-portfolio': stats.portfolio,
             'stats-workers': stats.workers,
+            'stats-reports': stats.reports || 0,
             'stats-notifications': stats.notifications || 0
         };
         Object.keys(statMap).forEach((id) => {
@@ -1084,7 +1095,7 @@ async function renderRecordsPage(type) {
                         ${workers.map((worker) => `
                             <div class="roster-card">
                                 <div class="roster-name"><span class="avatar" style="width:30px; height:30px; font-size:0.7rem; background:linear-gradient(135deg,#0ea5e9,#2563eb)">${escapeHtml(getInitials(worker.name))}</span>${escapeHtml(worker.name)}</div>
-                                <p class="roster-meta">${escapeHtml(worker.department)} · ${escapeHtml(worker.role)}</p>
+<p class="roster-meta">${escapeHtml(worker.department)} · ${escapeHtml(worker.role)}${worker.isDepartmentHead ? ' · Head' : ''}</p>
                             </div>`).join('')}
                     </div>
                 </div>`;
@@ -1231,7 +1242,7 @@ async function renderWorkersPage() {
                                 return `
                                 <tr>
                                     <td class="cell-strong">${escapeHtml(worker.id)}</td>
-                                    <td class="cell-strong"><span class="worker-name-cell">${renderAvatar(worker, 30)}<span>${escapeHtml(worker.name)}</span></span></td>
+                                    <td class="cell-strong"><span class="worker-name-cell">${renderAvatar(worker, 30)}<span>${escapeHtml(worker.name)}</span></span>${worker.isDepartmentHead ? ' <span class="status-pill contacted head-pill">Head</span>' : ''}</td>
                                     <td class="cell-muted">${escapeHtml(worker.email || '—')}</td>
                                     <td class="cell-muted">${escapeHtml(worker.department)}</td>
                                     <td class="cell-muted">${escapeHtml(worker.role)}</td>
@@ -1241,6 +1252,7 @@ async function renderWorkersPage() {
                                             <button class="btn-wn btn-wn-secondary" data-worker-password="${worker.id}" title="View or reset password">Password</button>
                                             <button class="btn-wn btn-wn-secondary" data-view-assignments="${worker.id}">View</button>
                                             <button class="btn-wn btn-wn-secondary" data-edit-worker="${worker.id}">Edit</button>
+                                            <button class="btn-wn ${worker.isDepartmentHead ? 'btn-wn-ghost' : 'btn-wn-secondary'}" data-toggle-head="${worker.id}" title="Make this worker the head of their department">${worker.isDepartmentHead ? 'Remove head' : 'Make head'}</button>
                                             <button class="btn-wn btn-wn-danger" data-delete-worker="${worker.id}">Delete</button>
                                         </div>
                                     </td>
@@ -1274,6 +1286,9 @@ async function renderWorkersPage() {
                         <div><label>Department</label><input name="department" list="department-list" required /></div>
                         <div><label>Role</label><input name="role" required /></div>
                     </div>
+                    <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.85rem">
+                        <input type="checkbox" name="isDepartmentHead" style="width:auto" /> Department head (can manage their department)
+                    </label>
                     <div style="display:flex; gap:0.5rem">
                         <button class="btn-wn btn-wn-primary" type="submit">Save changes</button>
                         <button class="btn-wn btn-wn-ghost" type="button" id="cancel-edit-worker">Cancel</button>
@@ -1416,6 +1431,7 @@ async function renderWorkersPage() {
                 form.password.value = '';
                 form.department.value = worker.department;
                 form.role.value = worker.role;
+                form.isDepartmentHead.checked = !!worker.isDepartmentHead;
                 card.style.display = '';
                 card.scrollIntoView({ behavior: 'smooth' });
             });
@@ -1426,6 +1442,7 @@ async function renderWorkersPage() {
             const form = event.currentTarget;
             const payload = Object.fromEntries(new FormData(form).entries());
             delete payload.password;
+            payload.isDepartmentHead = form.isDepartmentHead.checked;
             if (form.password.value.trim()) payload.password = form.password.value.trim();
             try {
                 await authApi(`/api/admin/workers/${form.dataset.workerId}`, {
@@ -1441,6 +1458,24 @@ async function renderWorkersPage() {
 
         document.getElementById('cancel-edit-worker').addEventListener('click', () => {
             document.getElementById('edit-worker-card').style.display = 'none';
+        });
+
+document.querySelectorAll('[data-toggle-head]').forEach((button) => {
+            button.addEventListener('click', async () => {
+                const worker = workers.find((item) => item.id === button.getAttribute('data-toggle-head'));
+                if (!worker) return;
+                if (!confirm(`${worker.isDepartmentHead ? 'Remove' : 'Make'} ${worker.name} ${worker.isDepartmentHead ? 'as' : 'the'} department head of ${worker.department}?`)) return;
+                try {
+                    await authApi(`/api/admin/workers/${worker.id}`, {
+                        method: 'PUT',
+                        body: JSON.stringify({ isDepartmentHead: !worker.isDepartmentHead })
+                    });
+                    showToast('Department head updated');
+                    renderWorkersPage();
+                } catch (error) {
+                    showToast(error.message);
+                }
+            });
         });
 
         document.querySelectorAll('[data-delete-worker]').forEach((button) => {
@@ -1488,7 +1523,7 @@ async function renderDepartmentsPage() {
                         <div class="dept-roster">
                             ${departmentWorkers.length ? departmentWorkers.map((worker) => `
                                 <div class="roster-card">
-                                    <div class="roster-name"><span class="avatar" style="width:30px; height:30px; font-size:0.7rem; background:linear-gradient(135deg,#0ea5e9,#2563eb)">${escapeHtml(getInitials(worker.name))}</span>${escapeHtml(worker.name)}</div>
+<div class="roster-name"><span class="avatar" style="width:30px; height:30px; font-size:0.7rem; background:linear-gradient(135deg,#0ea5e9,#2563eb)">${escapeHtml(getInitials(worker.name))}</span>${escapeHtml(worker.name)}${worker.isDepartmentHead ? ' <span class="status-pill contacted head-pill">Head</span>' : ''}</div>
                                     <p class="roster-meta">${escapeHtml(worker.role)}</p>
                                 </div>`).join('') : '<p class="cell-muted">No workers in this department.</p>'}
                         </div>
@@ -1530,6 +1565,99 @@ async function renderDepartmentsPage() {
     } catch (error) {
         content.innerHTML = `<div class="admin-card"><p class="cell-muted">${escapeHtml(error.message)}</p></div>`;
     }
+}
+
+/* ---------------- Reports ---------------- */
+
+async function renderReportsPage() {
+    const content = document.getElementById('admin-content');
+    try {
+        const reports = await authApi('/api/admin/reports');
+        const unread = reports.filter((report) => !report.read).length;
+        content.innerHTML = `
+            <div class="dept-stats">
+                <div class="stat-card"><strong>${reports.length}</strong><span>Total reports</span></div>
+                <div class="stat-card"><strong>${unread}</strong><span>Unread</span></div>
+                <div class="stat-card"><strong>${new Set(reports.map((report) => report.workerId)).size}</strong><span>Workers reporting</span></div>
+            </div>
+            <div class="admin-card">
+                <div class="card-head">
+                    <h3>Worker reports</h3>
+                    <div class="card-tools">
+                        <input id="reports-search" type="search" placeholder="Search…" style="min-width:200px; border:1px solid var(--wn-border); border-radius:0.8rem; padding:0.55rem 0.8rem; font:inherit" />
+                        <select id="reports-status-filter" style="border:1px solid var(--wn-border); border-radius:0.8rem; padding:0.55rem 0.7rem; font:inherit">
+                            <option value="all">All statuses</option>
+                            <option value="new">New / unread</option>
+                            <option value="read">Read</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="admin-table-wrap">
+                    <table class="admin-table">
+                        <thead><tr><th>Report</th><th>Worker</th><th>Department</th><th>Submitted</th><th>Status</th><th style="text-align:right">Actions</th></tr></thead>
+                        <tbody id="reports-body"></tbody>
+                    </table>
+                </div>
+            </div>`;
+
+        renderReportsTable(reports);
+
+        document.getElementById('reports-search').addEventListener('input', () => renderReportsTable(reports));
+        document.getElementById('reports-status-filter').addEventListener('change', () => renderReportsTable(reports));
+    } catch (error) {
+        content.innerHTML = `<div class="admin-card"><p class="cell-muted">${escapeHtml(error.message)}</p></div>`;
+    }
+}
+
+function renderReportsTable(reports) {
+    const body = document.getElementById('reports-body');
+    if (!body) return;
+    const searchValue = (document.getElementById('reports-search')?.value || '').toLowerCase();
+    const statusFilter = document.getElementById('reports-status-filter')?.value || 'all';
+    const filtered = reports.filter((report) => {
+        const matchesStatus = statusFilter === 'all' || (statusFilter === 'read' ? report.read : !report.read);
+        const haystack = [report.title, report.notes, report.workerName, report.department, report.fileName].join(' ').toLowerCase();
+        return matchesStatus && (!searchValue || haystack.includes(searchValue));
+    });
+
+    body.innerHTML = filtered.length ? filtered.map((report) => `
+        <tr class="${report.read ? '' : 'report-row-unread'}">
+            <td class="cell-strong">${escapeHtml(report.title)}${report.notes ? `<br/><span class="cell-muted">${escapeHtml(report.notes)}</span>` : ''}<br/><span class="cell-muted">${escapeHtml(report.fileName)} · ${(report.fileSize / 1024).toFixed(0)} KB</span></td>
+            <td class="cell-muted">${escapeHtml(report.workerName)}</td>
+            <td class="cell-muted">${escapeHtml(report.department || '—')}</td>
+            <td class="cell-muted">${escapeHtml(formatDate(report.submittedAt))}</td>
+            <td><span class="status-pill ${report.read ? 'contacted' : 'new'}">${report.read ? 'Read' : 'New'}</span></td>
+            <td>
+                <div style="display:flex; gap:0.4rem; align-items:center; justify-content:flex-end; flex-wrap:wrap">
+                    <a class="btn-wn btn-wn-secondary" href="${report.fileData}" target="_blank" rel="noopener">${ICONS.eye} View</a>
+                    <a class="btn-wn btn-wn-ghost" href="${report.fileData}" download="${escapeHtml(report.fileName)}">${ICONS.download}</a>
+                    <button class="btn-wn btn-wn-secondary" data-report-toggle="${report.id}">${report.read ? 'Mark unread' : 'Mark read'}</button>
+                    <button class="btn-wn btn-wn-danger" data-report-delete="${report.id}">Delete</button>
+                </div>
+            </td>
+        </tr>`).join('')
+        : '<tr><td colspan="6" class="cell-muted">No reports match your filters.</td></tr>';
+
+    document.querySelectorAll('[data-report-toggle]').forEach((button) => {
+        button.addEventListener('click', async () => {
+            const report = reports.find((item) => item.id === button.getAttribute('data-report-toggle'));
+            if (!report) return;
+            await authApi(`/api/admin/reports/${report.id}`, {
+                method: 'PUT',
+                body: JSON.stringify({ read: !report.read })
+            });
+            renderReportsPage();
+        });
+    });
+    document.querySelectorAll('[data-report-delete]').forEach((button) => {
+        button.addEventListener('click', async () => {
+            const report = reports.find((item) => item.id === button.getAttribute('data-report-delete'));
+            if (!report || !confirm(`Delete the report "${report.title}"?`)) return;
+            await authApi(`/api/admin/reports/${report.id}`, { method: 'DELETE' });
+            showToast('Report deleted');
+            renderReportsPage();
+        });
+    });
 }
 
 /* ---------------- Forms ---------------- */
@@ -1866,6 +1994,9 @@ function currentPageInfo() {
     if (pathname === '/admin/dashboard.html') {
         return { key: 'dashboard', title: 'Dashboard', subtitle: 'Command center for WorldNet operations' };
     }
+    if (pathname === '/admin/reports.html') {
+        return { key: 'reports', title: 'Reports', subtitle: 'PDF reports submitted by workers' };
+    }
     if (pathname === '/admin/consultations.html') {
         return { key: 'consultations', title: 'Consultations', subtitle: 'Assign and track consultation requests' };
     }
@@ -1894,6 +2025,7 @@ function initAdmin() {
     const isRecordsPage = window.location.pathname === '/admin/records.html';
     const isWorkersPage = window.location.pathname === '/admin/workers.html';
     const isDepartmentsPage = window.location.pathname === '/admin/departments.html';
+    const isReportsPage = window.location.pathname === '/admin/reports.html';
 
     renderShell(page.key, page.title, page.subtitle);
     const content = document.getElementById('admin-content');
@@ -1902,6 +2034,8 @@ function initAdmin() {
         content.innerHTML = buildDashboard(getAdminProfile());
         wireDashboardForms();
         loadDashboard();
+    } else if (isReportsPage) {
+        renderReportsPage();
     } else if (isConsultationsPage) {
         renderRecordsPage('consultations');
     } else if (isRecordsPage) {

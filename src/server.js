@@ -18,7 +18,7 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({ limit: '16mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: process.env.NODE_ENV === 'test' ? 1000 : 12, standardHeaders: true, legacyHeaders: false });
@@ -181,6 +181,7 @@ const initialData = {
     inquiries: [],
     consultations: [],
     notifications: [],
+    reports: [],
     workers: [
         { id: 'WNS-001', name: 'Ama Boateng', department: 'Infrastructure', role: 'Network Engineer', email: 'ama.boateng@worldnetict.com', passwordHash: bcrypt.hashSync('worker123', 10), tempPassword: 'worker123' },
         { id: 'WNS-002', name: 'Kofi Mensah', department: 'Security', role: 'Security Analyst', email: 'kofi.mensah@worldnetict.com', passwordHash: bcrypt.hashSync('worker123', 10), tempPassword: 'worker123' },
@@ -286,6 +287,35 @@ function sanitizeProfilePhoto(value) {
     if (!trimmed || trimmed.length > 800000) return '';
     if (/^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/=\s]+$/.test(trimmed)) return trimmed;
     return '';
+}
+
+const MAX_REPORT_BASE64 = 11 * 1024 * 1024;
+
+function sanitizePdfUpload(value) {
+    if (typeof value !== 'string') return '';
+    const data = value.trim();
+    if (!data.startsWith('data:application/pdf;base64,')) return '';
+    if (data.length > MAX_REPORT_BASE64) return '';
+    let decoded = '';
+    try {
+        decoded = Buffer.from(data.slice(data.indexOf(',') + 1), 'base64').toString('latin1');
+    } catch (_error) {
+        return '';
+    }
+    if (!decoded.startsWith('%PDF')) return '';
+    return data;
+}
+
+function normalizeDepartmentHeads() {
+    const seen = new Set();
+    for (const worker of state.workers) {
+        if (!worker.isDepartmentHead) continue;
+        if (seen.has(worker.department)) {
+            worker.isDepartmentHead = false;
+        } else {
+            seen.add(worker.department);
+        }
+    }
 }
 
 function authRequired(req, res, next) {
@@ -647,7 +677,9 @@ app.get('/api/admin/stats', authRequired, (_req, res) => {
         portfolio: state.portfolio.length,
         admins: state.admins.length,
         workers: state.workers.length,
-        notifications: state.notifications.filter((item) => !item.read).length
+        notifications: state.notifications.filter((item) => !item.read).length,
+        reports: state.reports.length,
+        unreadReports: state.reports.filter((item) => !item.read).length
     });
 });
 
@@ -659,6 +691,33 @@ app.put('/api/admin/notifications/:id/read', authRequired, async (req, res) => {
     notification.read = true;
     await saveState();
     res.json(notification);
+});
+
+app.get('/api/admin/reports', authRequired, adminRequired, (_req, res) => res.json(state.reports));
+
+app.put('/api/admin/reports/:id/read', authRequired, adminRequired, async (req, res) => {
+    const report = state.reports.find((item) => item.id === req.params.id);
+    if (!report) return res.status(404).json({ error: 'Report not found' });
+    report.read = true;
+    await saveState();
+    res.json(report);
+});
+
+app.put('/api/admin/reports/:id', authRequired, adminRequired, async (req, res) => {
+    const report = state.reports.find((item) => item.id === req.params.id);
+    if (!report) return res.status(404).json({ error: 'Report not found' });
+    if (typeof req.body.read === 'boolean') report.read = req.body.read;
+    if (typeof req.body.status === 'string') report.status = sanitizeText(req.body.status);
+    await saveState();
+    res.json(report);
+});
+
+app.delete('/api/admin/reports/:id', authRequired, adminRequired, async (req, res) => {
+    const index = state.reports.findIndex((item) => item.id === req.params.id);
+    if (index < 0) return res.status(404).json({ error: 'Report not found' });
+    const [removed] = state.reports.splice(index, 1);
+    await saveState();
+    res.json({ ok: true, report: removed });
 });
 
 app.get('/api/admin/users', authRequired, adminRequired, (_req, res) => {
@@ -738,9 +797,11 @@ app.post('/api/admin/workers', authRequired, adminRequired, async (req, res) => 
         role,
         email: email || '',
         passwordHash: bcrypt.hashSync(tempPassword, 10),
-        tempPassword
+        tempPassword,
+        isDepartmentHead: Boolean(req.body.isDepartmentHead)
     };
     state.workers.push(worker);
+    normalizeDepartmentHeads();
     await saveState();
     res.status(201).json(toPublicWorker(worker));
 });
@@ -779,8 +840,10 @@ app.put('/api/admin/workers/:id', authRequired, adminRequired, async (req, res) 
         role,
         email,
         passwordHash: req.body.password ? bcrypt.hashSync(String(req.body.password), 10) : existing.passwordHash,
-        tempPassword: req.body.password ? String(req.body.password) : existing.tempPassword
+        tempPassword: req.body.password ? String(req.body.password) : existing.tempPassword,
+        isDepartmentHead: typeof req.body.isDepartmentHead === 'boolean' ? req.body.isDepartmentHead : Boolean(existing.isDepartmentHead)
     };
+    normalizeDepartmentHeads();
     state.consultations = state.consultations.map((consultation) => {
         if (consultation.assignedWorker === existing.name) {
             return { ...consultation, assignedWorker: name };
@@ -796,9 +859,12 @@ app.get('/api/admin/departments', authRequired, adminRequired, (_req, res) => {
     for (const worker of state.workers) {
         const key = worker.department || 'Unassigned';
         if (!departments[key]) {
-            departments[key] = { department: key, workers: [], consultationCount: 0 };
+            departments[key] = { department: key, head: null, workers: [], consultationCount: 0 };
         }
-        departments[key].workers.push({ id: worker.id, name: worker.name, role: worker.role, email: worker.email || '' });
+        if (worker.isDepartmentHead) {
+            departments[key].head = { id: worker.id, name: worker.name };
+        }
+        departments[key].workers.push({ id: worker.id, name: worker.name, role: worker.role, email: worker.email || '', isDepartmentHead: Boolean(worker.isDepartmentHead) });
     }
     for (const consultation of state.consultations) {
         const key = consultation.assignedDepartment || 'Unassigned';
@@ -811,6 +877,7 @@ app.delete('/api/admin/workers/:id', authRequired, adminRequired, async (req, re
     const index = state.workers.findIndex((worker) => worker.id === req.params.id);
     if (index < 0) return res.status(404).json({ error: 'Worker not found' });
     const [worker] = state.workers.splice(index, 1);
+    normalizeDepartmentHeads();
     state.consultations = state.consultations.map((consultation) => (
         consultation.assignedWorker === worker.name
             ? { ...consultation, assignedWorker: '' }
@@ -848,7 +915,7 @@ app.post('/api/login', loginLimiter, async (req, res) => {
             await saveState();
         }
         const token = createToken({ id: worker.id, email: worker.email, name: worker.name, role: 'worker' });
-        return res.json({ ok: true, role: 'worker', token, worker: { id: worker.id, name: worker.name, email: worker.email, department: worker.department, role: worker.role, profilePhoto: worker.profilePhoto || '' } });
+        return res.json({ ok: true, role: 'worker', token, worker: { id: worker.id, name: worker.name, email: worker.email, department: worker.department, role: worker.role, profilePhoto: worker.profilePhoto || '', isDepartmentHead: Boolean(worker.isDepartmentHead) } });
     }
 
     return res.status(401).json({ error: 'Invalid staff ID/email or password.' });
@@ -879,7 +946,7 @@ app.post('/api/worker/login', loginLimiter, async (req, res) => {
         await saveState();
     }
     const token = createToken({ id: worker.id, email: worker.email, name: worker.name, role: 'worker' });
-    res.json({ ok: true, token, worker: { id: worker.id, name: worker.name, email: worker.email, department: worker.department, role: worker.role, profilePhoto: worker.profilePhoto || '' } });
+    res.json({ ok: true, token, worker: { id: worker.id, name: worker.name, email: worker.email, department: worker.department, role: worker.role, profilePhoto: worker.profilePhoto || '', isDepartmentHead: Boolean(worker.isDepartmentHead) } });
 });
 
 app.get('/api/worker/me', authRequired, workerRequired, (req, res) => {
@@ -887,6 +954,71 @@ app.get('/api/worker/me', authRequired, workerRequired, (req, res) => {
     if (!worker) return res.status(404).json({ error: 'Worker not found' });
     const assignments = state.consultations.filter((consultation) => consultation.assignedWorker === worker.name);
     res.json({ worker: toPublicWorker(worker), assignments });
+});
+
+app.get('/api/worker/reports', authRequired, workerRequired, (req, res) => {
+    res.json(state.reports.filter((report) => report.workerId === req.admin.id));
+});
+
+app.post('/api/worker/reports', authRequired, workerRequired, async (req, res) => {
+    const worker = state.workers.find((item) => item.id === req.admin.id);
+    if (!worker) return res.status(404).json({ error: 'Worker not found' });
+    const title = sanitizeText(req.body.title);
+    const notes = sanitizeText(req.body.notes || '');
+    const fileName = sanitizeText(req.body.fileName) || 'report.pdf';
+    const fileData = sanitizePdfUpload(req.body.fileData);
+    if (!title) return res.status(400).json({ error: 'Report title is required.' });
+    if (!fileData) return res.status(400).json({ error: 'Please attach a valid PDF file (max 8 MB).' });
+    const report = {
+        id: `rep-${crypto.randomBytes(3).toString('hex')}`,
+        workerId: worker.id,
+        workerName: worker.name,
+        department: worker.department || '',
+        title,
+        notes,
+        fileName,
+        fileType: 'application/pdf',
+        fileData,
+        fileSize: Number(req.body.fileSize || 0),
+        status: 'new',
+        read: false,
+        submittedAt: new Date().toISOString()
+    };
+    state.reports.unshift(report);
+    createNotification('report', report, 'New report submitted', `${worker.name} submitted a report: ${title}`);
+    await saveState();
+    res.status(201).json({ ok: true, report });
+});
+
+app.get('/api/worker/department', authRequired, workerRequired, (req, res) => {
+    const worker = state.workers.find((item) => item.id === req.admin.id);
+    if (!worker) return res.status(404).json({ error: 'Worker not found' });
+    if (!worker.isDepartmentHead) {
+        return res.status(403).json({ error: 'You are not a department head.' });
+    }
+    const members = state.workers.filter((item) => item.department === worker.department).map(toPublicWorker);
+    const consultations = state.consultations.filter((item) => item.assignedDepartment === worker.department);
+    const reports = state.reports.filter((item) => item.department === worker.department);
+    res.json({ department: worker.department, workers: members, consultations, reports });
+});
+
+app.put('/api/worker/consultations/:id', authRequired, workerRequired, async (req, res) => {
+    const worker = state.workers.find((item) => item.id === req.admin.id);
+    if (!worker || !worker.isDepartmentHead) {
+        return res.status(403).json({ error: 'Department head access required' });
+    }
+    const index = state.consultations.findIndex((item) => item.id === req.params.id);
+    if (index < 0) return res.status(404).json({ error: 'Consultation not found' });
+    const consultation = state.consultations[index];
+    if (consultation.assignedDepartment !== worker.department) {
+        return res.status(403).json({ error: 'This consultation is not assigned to your department.' });
+    }
+    const status = sanitizeText(req.body.status) || consultation.status;
+    const handledBy = worker.name || consultation.handledBy;
+    const handledAt = handledBy && !consultation.handledBy ? new Date().toISOString() : consultation.handledAt;
+    state.consultations[index] = { ...consultation, status, handledBy, handledAt };
+    await saveState();
+    res.json(state.consultations[index]);
 });
 
 app.put('/api/profile', authRequired, async (req, res) => {

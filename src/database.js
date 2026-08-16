@@ -89,6 +89,21 @@ const schema = `
         email TEXT NOT NULL DEFAULT '',
         password_hash TEXT NOT NULL DEFAULT ''
     );
+    CREATE TABLE IF NOT EXISTS reports (
+        id TEXT PRIMARY KEY,
+        worker_id TEXT NOT NULL,
+        worker_name TEXT NOT NULL,
+        department TEXT NOT NULL DEFAULT '',
+        title TEXT NOT NULL,
+        notes TEXT NOT NULL DEFAULT '',
+        file_name TEXT NOT NULL,
+        file_type TEXT NOT NULL DEFAULT 'application/pdf',
+        file_data TEXT NOT NULL,
+        file_size INTEGER NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'new',
+        read BOOLEAN NOT NULL DEFAULT FALSE,
+        submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
     CREATE TABLE IF NOT EXISTS notifications (
         id TEXT PRIMARY KEY,
         type TEXT NOT NULL,
@@ -121,6 +136,7 @@ const schema = `
     ALTER TABLE workers ADD COLUMN IF NOT EXISTS password_hash TEXT NOT NULL DEFAULT '';
     ALTER TABLE workers ADD COLUMN IF NOT EXISTS temp_password TEXT NOT NULL DEFAULT '';
     ALTER TABLE workers ADD COLUMN IF NOT EXISTS profile_photo TEXT NOT NULL DEFAULT '';
+    ALTER TABLE workers ADD COLUMN IF NOT EXISTS is_department_head BOOLEAN NOT NULL DEFAULT FALSE;
     ALTER TABLE admins ADD COLUMN IF NOT EXISTS temp_password TEXT NOT NULL DEFAULT '';
     ALTER TABLE admins ADD COLUMN IF NOT EXISTS profile_photo TEXT NOT NULL DEFAULT '';
 `;
@@ -147,7 +163,22 @@ function fromRows(rows, settings) {
             handledBy: row.handled_by || '',
             handledAt: row.handled_at?.toISOString() || ''
         })),
-        workers: rows.workers.map((row) => ({ id: row.id, name: row.name, department: row.department, role: row.role, email: row.email || '', passwordHash: row.password_hash || '', tempPassword: row.temp_password || '', profilePhoto: row.profile_photo || '' })),
+        workers: rows.workers.map((row) => ({ id: row.id, name: row.name, department: row.department, role: row.role, email: row.email || '', passwordHash: row.password_hash || '', tempPassword: row.temp_password || '', profilePhoto: row.profile_photo || '', isDepartmentHead: Boolean(row.is_department_head) })),
+        reports: rows.reports.map((row) => ({
+            id: row.id,
+            workerId: row.worker_id,
+            workerName: row.worker_name,
+            department: row.department || '',
+            title: row.title,
+            notes: row.notes || '',
+            fileName: row.file_name,
+            fileType: row.file_type || 'application/pdf',
+            fileData: row.file_data,
+            fileSize: row.file_size || 0,
+            status: row.status || 'new',
+            read: Boolean(row.read),
+            submittedAt: row.submitted_at instanceof Date ? row.submitted_at.toISOString() : row.submitted_at
+        })),
         notifications: rows.notifications.map((row) => ({ id: row.id, type: row.type, title: row.title, message: row.message, relatedId: row.related_id, read: row.read, createdAt: row.created_at.toISOString() })),
         admins: rows.admins.map((row) => ({ id: row.id, name: row.name, email: row.email, passwordHash: row.password_hash, role: row.role, tempPassword: row.temp_password || '', profilePhoto: row.profile_photo || '' })),
         settings
@@ -186,9 +217,10 @@ export async function readDatabase() {
         const consultations = await client.query('SELECT * FROM consultations ORDER BY created_at DESC');
         const workers = await client.query('SELECT * FROM workers ORDER BY id');
         const notifications = await client.query('SELECT * FROM notifications ORDER BY created_at DESC');
+        const reports = await client.query('SELECT * FROM reports ORDER BY submitted_at DESC');
         const admins = await client.query('SELECT * FROM admins ORDER BY id');
         const settingRows = await client.query("SELECT value FROM settings WHERE key = 'application'");
-        return fromRows({ services: services.rows, portfolio: portfolio.rows, inquiries: inquiries.rows, consultations: consultations.rows, workers: workers.rows, notifications: notifications.rows, admins: admins.rows }, settingRows.rows[0]?.value || {});
+        return fromRows({ services: services.rows, portfolio: portfolio.rows, inquiries: inquiries.rows, consultations: consultations.rows, workers: workers.rows, notifications: notifications.rows, reports: reports.rows, admins: admins.rows }, settingRows.rows[0]?.value || {});
     } finally {
         client.release();
     }
@@ -216,14 +248,15 @@ async function replaceDatabase(client, data) {
     for (const item of data.portfolio) await client.query('INSERT INTO portfolio (id, title, client, category, description, outcome) VALUES ($1,$2,$3,$4,$5,$6)', [item.id, item.title, item.client, item.category, item.description || '', item.outcome || '']);
     for (const item of data.inquiries) await client.query('INSERT INTO inquiries (id, name, company, email, phone, service_type, message, status, handled_by, handled_at, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)', [item.id, item.name, item.company || '', item.email, item.phone, item.service_type, item.message, item.status, item.handledBy || '', item.handledAt || null, item.createdAt]);
     for (const item of data.consultations) await client.query('INSERT INTO consultations (id, name, company, email, phone, preferred_date, preferred_time, notes, status, assigned_department, assigned_worker, handled_by, handled_at, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)', [item.id, item.name, item.company || '', item.email, item.phone, item.preferred_date, item.preferred_time, item.notes || '', item.status, item.assignedDepartment || '', item.assignedWorker || '', item.handledBy || '', item.handledAt || null, item.createdAt]);
-    for (const item of data.workers || []) await client.query('INSERT INTO workers (id, name, department, role, email, password_hash, temp_password, profile_photo) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)', [item.id, item.name, item.department, item.role || '', item.email || '', item.passwordHash || '', item.tempPassword || '', item.profilePhoto || '']);
+    for (const item of data.workers || []) await client.query('INSERT INTO workers (id, name, department, role, email, password_hash, temp_password, profile_photo, is_department_head) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)', [item.id, item.name, item.department, item.role || '', item.email || '', item.passwordHash || '', item.tempPassword || '', item.profilePhoto || '', Boolean(item.isDepartmentHead)]);
+    for (const item of data.reports || []) await client.query('INSERT INTO reports (id, worker_id, worker_name, department, title, notes, file_name, file_type, file_data, file_size, status, read, submitted_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)', [item.id, item.workerId, item.workerName, item.department || '', item.title, item.notes || '', item.fileName, item.fileType || 'application/pdf', item.fileData, Number(item.fileSize || 0), item.status || 'new', Boolean(item.read), item.submittedAt]);
     for (const item of data.notifications || []) await client.query('INSERT INTO notifications (id, type, title, message, related_id, read, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)', [item.id, item.type, item.title, item.message, item.relatedId || '', Boolean(item.read), item.createdAt]);
     for (const item of data.admins) await client.query('INSERT INTO admins (id, name, email, password_hash, role, temp_password, profile_photo) VALUES ($1,$2,$3,$4,$5,$6,$7)', [item.id, item.name, item.email, item.passwordHash, item.role, item.tempPassword || '', item.profilePhoto || '']);
     await client.query("INSERT INTO settings (key, value) VALUES ('application', $1)", [JSON.stringify(data.settings)]);
 }
 
 async function clearDatabase(client) {
-    for (const table of ['services', 'portfolio', 'inquiries', 'consultations', 'workers', 'notifications', 'admins', 'settings']) {
+    for (const table of ['services', 'portfolio', 'inquiries', 'consultations', 'workers', 'reports', 'notifications', 'admins', 'settings']) {
         await client.query(`DELETE FROM ${table}`);
     }
 }
