@@ -702,13 +702,25 @@ function buildDashboard(admin) {
         </div>`;
 }
 
+const STAT_LINKS = {
+    services: '/admin/records.html?type=services',
+    inquiries: '/admin/records.html?type=inquiries',
+    consultations: '/admin/consultations.html',
+    portfolio: '/admin/records.html?type=portfolio',
+    workers: '/admin/workers.html',
+    reports: '/admin/reports.html'
+};
+
 function statCard(key, label, id, color, iconKey) {
-    return `
-        <div class="stat-card" style="--stat-color:${color}">
-            <div class="stat-icon">${ICONS[iconKey] || ''}</div>
-            <span class="stat-label">${label}</span>
-            <div class="stat-value" id="${id}">0</div>
-        </div>`;
+    const href = STAT_LINKS[key];
+    const inner = `
+        <div class="stat-icon">${ICONS[iconKey] || ''}</div>
+        <span class="stat-label">${label}</span>
+        <div class="stat-value" id="${id}">0</div>
+        ${href ? `<span class="stat-arrow">${ICONS.arrowRight}</span>` : ''}`;
+    return href
+        ? `<a class="stat-card stat-card-link" href="${href}" style="--stat-color:${color}" title="Open ${label}">${inner}</a>`
+        : `<div class="stat-card" style="--stat-color:${color}">${inner}</div>`;
 }
 
 function getFilteredItems(items, searchSelector, statusSelector, valueFields = []) {

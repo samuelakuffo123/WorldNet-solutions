@@ -433,6 +433,42 @@ html {
     box-shadow: var(--wn-shadow-lg);
 }
 
+a.stat-card {
+    text-decoration: none;
+    color: inherit;
+    cursor: pointer;
+}
+
+a.stat-card:focus-visible {
+    outline: 2px solid var(--wn-blue);
+    outline-offset: 2px;
+}
+
+.stat-card .stat-arrow {
+    position: absolute;
+    top: 0.85rem;
+    right: 0.85rem;
+    color: var(--wn-slate-400);
+    opacity: 0;
+    transform: translateX(-5px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+a.stat-card:hover .stat-arrow,
+a.stat-card:focus-visible .stat-arrow {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+a.stat-card .stat-icon {
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+a.stat-card:hover .stat-icon {
+    background: var(--stat-color, var(--wn-blue));
+    color: #fff;
+}
+
 .stat-card::after {
     content: "";
     position: absolute;
