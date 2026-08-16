@@ -74,33 +74,70 @@ function statusClass(status) {
 
 /* ---------------- Theme ---------------- */
 
-function getTheme() {
+function getStoredTheme() {
     try {
-        return localStorage.getItem('worldnet_theme') || 'light';
+        const stored = localStorage.getItem('worldnet_theme');
+        return stored === 'dark' || stored === 'light' || stored === 'auto' ? stored : 'auto';
     } catch (_error) {
-        return 'light';
+        return 'auto';
     }
 }
 
-function applyTheme(theme) {
-    const value = theme || getTheme();
-    document.documentElement.setAttribute('data-theme', value);
+function systemPrefersDark() {
     try {
-        localStorage.setItem('worldnet_theme', value);
+        return typeof window.matchMedia === 'function' && window.matchMedia('(prefers-color-scheme: dark)').matches;
     } catch (_error) {
-        /* storage unavailable */
+        return false;
     }
+}
+
+function resolveTheme(preference) {
+    if (preference === 'dark' || preference === 'light') return preference;
+    return systemPrefersDark() ? 'dark' : 'light';
+}
+
+function setThemeIcons(preference) {
+    const glyph = preference === 'auto' ? '◐' : (preference === 'dark' ? '☾' : '☀');
+    const title = preference === 'auto'
+        ? `Theme: System (${resolveTheme('auto')}) — tap to force light`
+        : (preference === 'dark' ? 'Theme: Dark — tap to use system theme' : 'Theme: Light — tap to force dark');
     document.querySelectorAll('.theme-toggle').forEach((btn) => {
-        const dark = value === 'dark';
-        btn.title = dark ? 'Switch to light mode' : 'Switch to dark mode';
-        btn.setAttribute('aria-label', btn.title);
+        btn.title = title;
+        btn.setAttribute('aria-label', title);
         const icon = btn.querySelector('.theme-icon');
-        if (icon) icon.textContent = dark ? '☀' : '☾';
+        if (icon) icon.textContent = glyph;
     });
 }
 
+function applyTheme() {
+    const preference = getStoredTheme();
+    document.documentElement.setAttribute('data-theme', resolveTheme(preference));
+    setThemeIcons(preference);
+}
+
+function watchSystemTheme() {
+    try {
+        const media = window.matchMedia('(prefers-color-scheme: dark)');
+        const onSystemChange = () => {
+            if (getStoredTheme() === 'auto') applyTheme();
+        };
+        if (media.addEventListener) media.addEventListener('change', onSystemChange);
+        else if (media.addListener) media.addListener(onSystemChange);
+    } catch (_error) {
+        /* no system theme support */
+    }
+}
+
 function toggleTheme() {
-    applyTheme(getTheme() === 'dark' ? 'light' : 'dark');
+    const order = ['auto', 'light', 'dark'];
+    const current = getStoredTheme();
+    const next = order[(order.indexOf(current) + 1) % order.length];
+    try {
+        localStorage.setItem('worldnet_theme', next);
+    } catch (_error) {
+        /* storage unavailable */
+    }
+    applyTheme();
 }
 
 function wireThemeToggle() {
@@ -1883,6 +1920,7 @@ function initAdmin() {
 
 document.addEventListener('DOMContentLoaded', () => {
     applyTheme();
+    watchSystemTheme();
     wireThemeToggle();
     wirePasswordToggles();
     wireLogin();
