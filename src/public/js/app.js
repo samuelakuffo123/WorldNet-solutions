@@ -4,8 +4,8 @@ const pages = {
     '/service-details.html': 'Services',
     '/about.html': 'About',
     '/portfolio.html': 'Portfolio',
+    '/team.html': 'Our team',
     '/contact.html': 'Contact',
-    '/faq.html': 'FAQ',
     '/consultation.html': 'Consultation'
 };
 
