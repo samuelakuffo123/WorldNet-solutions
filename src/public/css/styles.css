@@ -1,4 +1,4 @@
-﻿:root {
+:root {
     color-scheme: light;
     --navy: #07152b;
     --blue: #2563eb;
@@ -685,6 +685,7 @@ body.page-ready .hero-shape-4 {
     -webkit-mask-composite: xor;
     mask-composite: exclude;
     opacity: 0;
+    pointer-events: none;
     transition: opacity 320ms var(--ease-premium);
 }
 
