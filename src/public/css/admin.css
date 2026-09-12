@@ -2194,6 +2194,43 @@ table.admin-table {
     padding: 1.5rem;
 }
 
+.status-timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    margin: 0.9rem 0 1rem;
+    max-height: 40vh;
+    overflow-y: auto;
+}
+
+.bulk-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    margin: 0.2rem 0 0.7rem;
+    min-height: 2.2rem;
+}
+
+.timeline-entry {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.45rem 0.6rem;
+    border-left: 3px solid var(--wn-accent, #2563eb);
+    background: rgba(37, 99, 235, 0.05);
+    border-radius: 0.55rem;
+}
+
+.timeline-meta {
+    font-size: 0.75rem;
+    color: var(--wn-slate-500, #64748b);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .credential-modal h3 {
     margin: 0 0 0.3rem;
 }

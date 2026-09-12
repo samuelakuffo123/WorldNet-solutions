@@ -6,7 +6,12 @@
     "scripts": {
         "start": "node server.js",
         "dev": "node --watch server.js",
-        "test": "node --test ../tests/api.test.js"
+        "check": "node scripts/check-syntax.js",
+        "test": "node --test \"../tests/*.test.js\"",
+        "test:e2e": "node scripts/run-e2e.js",
+        "test:axe": "node scripts/run-axe.js",
+        "test:load": "node scripts/run-load.js",
+        "verify": "npm run check && npm test"
     },
     "dependencies": {
         "bcryptjs": "^2.4.3",

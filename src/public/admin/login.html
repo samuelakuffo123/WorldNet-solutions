@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Team Sign In | WorldNet</title>
     <link rel="stylesheet" href="/css/admin.css" />
-    <script>try{var t=localStorage.getItem('worldnet_theme');var d=t==='dark'||((!t||t==='auto')&&matchMedia('(prefers-color-scheme: dark)').matches);if(d)document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
+    <script src="/js/theme-init.js"></script>
 </head>
 
 <body class="login-body">
@@ -16,7 +16,7 @@
         <h1>Welcome back</h1>
         <p class="login-sub">Sign in with your staff ID — we'll route you to the right portal.</p>
 
-        <form id="login-form" class="login-form" autocomplete="on">
+        <form id="login-form" class="login-form" autocomplete="on" hidden>
             <div>
                 <label for="identifier">Staff ID / Username</label>
                 <input id="identifier" type="text" name="identifier" placeholder="e.g. WNS-001" required autocomplete="username" />
@@ -31,7 +31,28 @@
             <button class="btn-wn btn-wn-primary" type="submit" style="width:100%; padding:0.85rem">Sign in</button>
         </form>
 
-        <p style="text-align:center; margin:1.1rem 0 0">
+        <form id="setup-form" class="login-form" autocomplete="on" hidden>
+            <h2 style="font-size:1.15rem; margin:0">Create the first admin account</h2>
+            <p class="login-sub" style="margin:0.35rem 0 0">No administrator exists yet. Set up your console to get started. Do not share these credentials.</p>
+            <div>
+                <label for="setup-name">Full name</label>
+                <input id="setup-name" type="text" name="name" placeholder="e.g. Ama Boateng" required autocomplete="name" />
+            </div>
+            <div>
+                <label for="setup-email">Work email</label>
+                <input id="setup-email" type="email" name="email" placeholder="you@worldnetict.com" required autocomplete="email" />
+            </div>
+            <div>
+                <label for="setup-password">Password (8+ characters)</label>
+                <div class="password-field">
+                    <input id="setup-password" type="password" name="password" placeholder="Choose a strong password" minlength="8" required autocomplete="new-password" />
+                    <button type="button" class="password-toggle" data-target="setup-password" aria-label="Show password"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                </div>
+            </div>
+            <button class="btn-wn btn-wn-primary" type="submit" style="width:100%; padding:0.85rem">Create administrator account</button>
+        </form>
+
+        <p id="forgot-link" style="text-align:center; margin:1.1rem 0 0">
             <a href="/admin/forgot-password.html" class="auth-link">Forgot your password?</a>
         </p>
         <p class="login-footnote">WorldNet ICT Solutions · Team Console</p>

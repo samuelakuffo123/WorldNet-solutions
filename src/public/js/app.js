@@ -145,6 +145,8 @@ function setFormStatus(form, message, type = 'success') {
         form.insertBefore(status, form.querySelector('button[type="submit"]') || null);
     }
     status.className = `form-status ${type}`;
+    status.setAttribute('role', 'status');
+    status.setAttribute('aria-live', 'polite');
     status.textContent = message;
 }
 
@@ -167,12 +169,54 @@ function prefillInquiryForm() {
     }
 }
 
-function validateForm(form, requiredFields) {
-    return requiredFields.filter((field) => {
-        const fieldElement = form.querySelector(`[name="${field}"]`);
-        if (!fieldElement) return false;
-        return !String(fieldElement.value || '').trim();
-    });
+const FIELD_LABELS = {
+    name: 'name',
+    email: 'email',
+    phone: 'phone',
+    service_type: 'service type',
+    message: 'message',
+    preferred_date: 'date',
+    preferred_time: 'time'
+};
+
+function clearFieldErrors(form) {
+    form.querySelectorAll('[data-field-error]').forEach((el) => el.remove());
+    form.querySelectorAll('[aria-invalid="true"]').forEach((el) => el.removeAttribute('aria-invalid'));
+}
+
+function markFieldError(element, field, message) {
+    element.setAttribute('aria-invalid', 'true');
+    const errorId = `${element.id || field}-error`;
+    let error = document.getElementById(errorId);
+    if (!error) {
+        error = document.createElement('span');
+        error.id = errorId;
+        error.setAttribute('data-field-error', 'true');
+        element.insertAdjacentElement('afterend', error);
+    }
+    error.textContent = message;
+    element.setAttribute('aria-describedby', errorId);
+}
+
+function fieldErrors(form, requiredFields) {
+    const errors = [];
+    for (const field of requiredFields) {
+        const element = form.querySelector(`[name="${field}"]`);
+        if (!element) continue;
+        const value = String(element.value || '').trim();
+        const label = FIELD_LABELS[field] || field;
+        if (!value) {
+            errors.push({ element, message: `Please enter your ${label}.` });
+            continue;
+        }
+        if (field === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+            errors.push({ element, message: 'Please enter a valid email address.' });
+        }
+        if (field === 'phone' && !/^\+?[0-9()\-\s.]{7,20}$/.test(value)) {
+            errors.push({ element, message: 'Please enter a valid phone number.' });
+        }
+    }
+    return errors;
 }
 
 async function api(path, options = {}) {
@@ -326,18 +370,55 @@ async function loadPortfolioDetails() {
     }
 }
 
+function autosaveForm(form, key) {
+    if (!form) return;
+    const syncInputs = () => {
+        const data = {};
+        for (const field of form.querySelectorAll('input[name], textarea[name], select[name]')) {
+            if (field.type === 'file') continue;
+            if (field.type === 'checkbox' || field.type === 'radio') {
+                if (field.checked) data[field.name] = field.value;
+                continue;
+            }
+            data[field.name] = field.value;
+        }
+        try { localStorage.setItem(key, JSON.stringify(data)); } catch (_error) { /* unavailable storage */ }
+    };
+    try {
+        const raw = localStorage.getItem(key);
+        if (raw) {
+            const data = JSON.parse(raw);
+            for (const field of form.querySelectorAll('input[name], textarea[name], select[name]')) {
+                if (data[field.name] !== undefined) field.value = data[field.name];
+            }
+        }
+    } catch (_error) { /* unreadable draft */ }
+    form.addEventListener('input', syncInputs);
+    form.addEventListener('change', syncInputs);
+}
+
+function clearAutosave(key) {
+    try { localStorage.removeItem(key); } catch (_error) { /* unavailable storage */ }
+}
+
 async function submitForm(formId, endpoint) {
     const form = document.getElementById(formId);
     if (!form) return;
+    autosaveForm(form, `wn-draft:${formId}`);
     form.addEventListener('submit', async (event) => {
         event.preventDefault();
+        clearFieldErrors(form);
         const requiredFields = formId === 'consultation-form'
             ? ['name', 'email', 'phone', 'preferred_date', 'preferred_time']
             : ['name', 'email', 'phone', 'service_type', 'message'];
-        const missingFields = validateForm(form, requiredFields);
+        const missingFields = fieldErrors(form, requiredFields);
         if (missingFields.length) {
-            setFormStatus(form, `Please complete: ${missingFields.join(', ')}`, 'error');
-            showToast('Please complete the required fields.');
+            for (const { element, message } of missingFields) {
+                markFieldError(element, element.name, message);
+            }
+            const firstInvalid = missingFields[0].element;
+            if (firstInvalid.focus) firstInvalid.focus();
+            setFormStatus(form, missingFields.length === 1 ? 'Please fix the highlighted field.' : 'Please fix the highlighted fields.', 'error');
             return;
         }
         const submitButton = form.querySelector('button[type="submit"]');
@@ -350,19 +431,30 @@ async function submitForm(formId, endpoint) {
             const formData = Object.fromEntries(new FormData(form).entries());
             await api(endpoint, { method: 'POST', body: JSON.stringify(formData) });
             form.reset();
+            clearAutosave(`wn-draft:${formId}`);
+            clearFieldErrors(form);
             if (formId === 'inquiry-form') {
                 prefillInquiryForm();
             }
             setFormStatus(form, 'Thanks! Your request was received and we will follow up shortly.', 'success');
             showToast('Thanks! Your request was received.');
+            const status = form.querySelector('[data-form-status]');
+            if (status && status.scrollIntoView) status.scrollIntoView({ behavior: 'smooth', block: 'center' });
         } catch (error) {
-            setFormStatus(form, error.message || 'Submission failed. Please try again.', 'error');
+            setFormStatus(form, error.message || 'Submission failed. We could not save your request. Your details are still on this form, please try again.', 'error');
             showToast(error.message);
         } finally {
             if (submitButton) {
                 submitButton.disabled = false;
                 submitButton.textContent = originalText;
             }
+        }
+    });
+    form.addEventListener('input', (event) => {
+        if (event.target && event.target.getAttribute('aria-invalid') === 'true') {
+            const errorEl = event.target.getAttribute('aria-describedby') ? document.getElementById(event.target.getAttribute('aria-describedby')) : null;
+            if (errorEl) errorEl.remove();
+            event.target.removeAttribute('aria-invalid');
         }
     });
 }

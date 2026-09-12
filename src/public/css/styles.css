@@ -1060,6 +1060,21 @@ textarea:focus {
     transform: translateY(-1px);
 }
 
+input[aria-invalid="true"],
+select[aria-invalid="true"],
+textarea[aria-invalid="true"] {
+    border-color: rgba(239, 68, 68, 0.55);
+    box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.12);
+}
+
+[data-field-error] {
+    display: block;
+    margin: 0.35rem 0 0 0.4rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #b91c1c;
+}
+
 textarea {
     min-height: 140px;
     resize: vertical;

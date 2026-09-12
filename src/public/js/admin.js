@@ -4,8 +4,13 @@
    Dashboard, records, and consultations views are rendered here.
    ============================================================ */
 
-function getToken() {
-    return localStorage.getItem('worldnet_token');
+function getCsrfToken() {
+    const match = document.cookie.split(';').map((s) => s.trim()).find((c) => c.startsWith('wn_csrf='));
+    return match ? decodeURIComponent(match.split('=').slice(1).join('=')) : '';
+}
+
+function hasSession() {
+    return getCsrfToken() !== '';
 }
 
 function getAdminProfile() {
@@ -331,12 +336,24 @@ overlay.setAttribute('role', 'dialog');
 /* ---------------- API ---------------- */
 
 async function authApi(path, options = {}) {
-    const res = await fetch(path, {
-        headers: { 'Content-Type': 'application/json', ...(options.headers || {}), Authorization: `Bearer ${getToken()}` },
-        ...options
-    });
+    const method = String(options.method || 'GET').toUpperCase();
+    const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+    if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
+        const csrf = getCsrfToken();
+        if (csrf) headers['X-CSRF-Token'] = csrf;
+    }
+    const res = await fetch(path, { ...options, method, headers });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || 'Request failed');
+    if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+            localStorage.removeItem('worldnet_admin');
+            if (!window.location.pathname.endsWith('/login.html')) {
+                showToast(data.error || 'Your session has expired. Please sign in again.');
+                setTimeout(() => { window.location.href = '/admin/login.html'; }, 700);
+            }
+        }
+        throw new Error(data.error || 'Request failed');
+    }
     return data;
 }
 
@@ -495,8 +512,8 @@ function buildTopbar(pageTitle, pageSubtitle) {
                     <button class="icon-button theme-toggle" id="theme-toggle" title="Switch to dark mode"><span class="theme-icon">☾</span></button>
                     <button class="icon-button" id="profile-btn" title="Edit your profile">${renderAvatar(getAdminProfile(), 26)}</button>
                     <div style="position:relative">
-                        <button class="icon-button" id="bell-btn" title="Notifications">${ICONS.bell}<span class="bell-dot" id="bell-dot"></span></button>
-                        <div class="notif-popover" id="notif-popover">
+                        <button class="icon-button" id="bell-btn" title="Notifications" aria-haspopup="true" aria-expanded="false" aria-controls="notif-popover">${ICONS.bell}<span class="bell-dot" id="bell-dot"></span></button>
+                        <div class="notif-popover" id="notif-popover" role="dialog" aria-label="Notifications">
                             <div class="notif-popover-head">
                                 <strong>Notifications</strong>
                                 <button class="btn-wn btn-wn-ghost" id="mark-all-read" type="button" style="padding:0.3rem 0.6rem; font-size:0.74rem">Mark all read</button>
@@ -559,16 +576,32 @@ function renderShell(activeKey, pageTitle, pageSubtitle) {
     });
 
     document.getElementById('logout-btn').addEventListener('click', async () => {
-        localStorage.removeItem('worldnet_token');
         localStorage.removeItem('worldnet_admin');
-        await fetch('/api/logout', { method: 'POST' }).catch(() => { });
+        const csrf = getCsrfToken();
+        await fetch('/api/logout', { method: 'POST', headers: csrf ? { 'X-CSRF-Token': csrf } : {} }).catch(() => { });
         window.location.href = '/admin/login.html';
     });
 
-    document.getElementById('bell-btn').addEventListener('click', (event) => {
+    const bell = document.getElementById('bell-btn');
+    const popover = document.getElementById('notif-popover');
+    bell.addEventListener('click', (event) => {
         event.stopPropagation();
-        document.getElementById('notif-popover').classList.toggle('open');
-        loadNotifications();
+        const opening = !popover.classList.contains('open');
+        popover.classList.toggle('open', opening);
+        bell.setAttribute('aria-expanded', String(opening));
+        if (opening) {
+            loadNotifications();
+            const first = popover.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+            if (first) first.focus();
+        }
+    });
+    popover.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            popover.classList.remove('open');
+            bell.setAttribute('aria-expanded', 'false');
+            bell.focus();
+        }
     });
 
     const sidebarUser = document.getElementById('sidebar-user');
@@ -581,7 +614,11 @@ function renderShell(activeKey, pageTitle, pageSubtitle) {
 
     document.addEventListener('click', () => {
         const popover = document.getElementById('notif-popover');
-        if (popover) popover.classList.remove('open');
+        if (popover) {
+            popover.classList.remove('open');
+            const bell = document.getElementById('bell-btn');
+            if (bell) bell.setAttribute('aria-expanded', 'false');
+        }
     });
 
     document.getElementById('mark-all-read').addEventListener('click', markAllNotificationsRead);
@@ -770,7 +807,7 @@ function buildDashboard(admin) {
             </div>
             <div class="admin-table-wrap">
                 <table class="admin-table">
-                    <thead><tr><th>Service</th><th>Category</th><th>Summary</th><th style="text-align:right">Actions</th></tr></thead>
+                    <thead><tr><th scope="col">Service</th><th>Category</th><th>Summary</th><th style="text-align:right">Actions</th></tr></thead>
                     <tbody id="services-body"></tbody>
                 </table>
             </div>
@@ -792,7 +829,7 @@ function buildDashboard(admin) {
             </div>
             <div class="admin-table-wrap">
                 <table class="admin-table">
-                    <thead><tr><th>Name</th><th>Email</th><th>Service</th><th>Status</th><th style="text-align:right">Action</th></tr></thead>
+                    <thead><tr><th scope="col">Name</th><th>Email</th><th>Service</th><th>Status</th><th style="text-align:right">Action</th></tr></thead>
                     <tbody id="inquiries-body"></tbody>
                 </table>
             </div>
@@ -815,7 +852,7 @@ function buildDashboard(admin) {
             </div>
             <div class="admin-table-wrap">
                 <table class="admin-table">
-                    <thead><tr><th>Name</th><th>Preferred</th><th>Time</th><th>Status</th><th style="text-align:right">Action</th></tr></thead>
+                    <thead><tr><th scope="col">Name</th><th>Preferred</th><th>Time</th><th>Status</th><th style="text-align:right">Action</th></tr></thead>
                     <tbody id="consultations-body"></tbody>
                 </table>
             </div>
@@ -830,7 +867,7 @@ function buildDashboard(admin) {
             </div>
             <div class="admin-table-wrap">
                 <table class="admin-table">
-                    <thead><tr><th>Title</th><th>Client</th><th>Category</th><th style="text-align:right">Actions</th></tr></thead>
+                    <thead><tr><th scope="col">Title</th><th>Client</th><th>Category</th><th style="text-align:right">Actions</th></tr></thead>
                     <tbody id="portfolio-body"></tbody>
                 </table>
             </div>
@@ -869,6 +906,115 @@ function getFilteredItems(items, searchSelector, statusSelector, valueFields = [
         const matchesStatus = statusValue === 'all' || item.status === statusValue;
         return matchesSearch && matchesStatus;
     });
+}
+
+const SEARCHABLE_TABLE_HTML = (perPage) => `
+    <div class="table-toolbar">
+        <div class="toolbar-search">
+            ${ICONS.search}
+            <input type="search" placeholder="Search…" aria-label="Search records" data-searchable-input />
+        </div>
+        <span class="cell-muted" data-searchable-count></span>
+        <div class="table-pagination" data-searchable-pager></div>
+    </div>`;
+
+function setupSearchableTable({ items, tbody, rowTemplate, searchText, emptyText = 'No records match your search.', emptyColspan = 6, perPage = 10, searchInput, extraFilter, afterRender }) {
+    if (!tbody || !Array.isArray(items)) return;
+    const state = { search: '', page: 1, perPage };
+    const card = tbody.closest('.admin-card');
+    const countLabel = card?.querySelector('[data-searchable-count]');
+    const pager = card?.querySelector('[data-searchable-pager]');
+    if (!searchInput) searchInput = card?.querySelector('[data-searchable-input]');
+
+    const render = () => {
+        const filtered = items.filter((item) => {
+            if (state.search && !String(searchText(item)).toLowerCase().includes(state.search)) return false;
+            if (extraFilter && !extraFilter(item)) return false;
+            return true;
+        });
+        const pages = Math.max(1, Math.ceil(filtered.length / state.perPage));
+        if (state.page > pages) state.page = pages;
+        const start = (state.page - 1) * state.perPage;
+        const pageRows = filtered.slice(start, start + state.perPage);
+        tbody.innerHTML = pageRows.length
+            ? pageRows.map(rowTemplate).join('')
+            : `<tr><td colspan="${emptyColspan}" class="cell-muted">${emptyText}</td></tr>`;
+        if (countLabel) countLabel.textContent = `${filtered.length} record${filtered.length === 1 ? '' : 's'}`;
+        if (pager) {
+            pager.innerHTML = `
+                <button type="button" class="page-btn" data-direction="-1" ${state.page === 1 ? 'disabled' : ''} aria-label="Previous page">‹</button>
+                <span class="page-info">${state.page} / ${pages}</span>
+                <button type="button" class="page-btn" data-direction="1" ${state.page === pages ? 'disabled' : ''} aria-label="Next page">›</button>`;
+        }
+        if (afterRender) afterRender(pageRows);
+    };
+    if (searchInput) {
+        searchInput.addEventListener('input', () => {
+            state.search = searchInput.value.toLowerCase();
+            state.page = 1;
+            render();
+        });
+    }
+    if (pager) {
+        pager.addEventListener('click', (event) => {
+            const btn = event.target.closest('.page-btn');
+            if (!btn || btn.disabled) return;
+            const next = state.page + Number.parseInt(btn.dataset.direction, 10);
+            if (next >= 1) {
+                state.page = next;
+                render();
+            }
+        });
+    }
+    render();
+    return { refresh: render, state };
+}
+
+function setupBulkStatusBar({ tbody, countLabel, applyButton, statusSelect, apiPath, statusField = 'status', onApplied }) {
+    const update = () => {
+        const boxes = tbody.querySelectorAll('[data-bulk-check]');
+        let checked = 0;
+        boxes.forEach((box) => { if (box.checked) checked += 1; });
+        if (countLabel) countLabel.textContent = checked ? `${checked} selected` : '';
+        if (applyButton) applyButton.disabled = checked === 0;
+        const toggle = document.querySelector('[data-bulk-toggle]');
+        if (toggle) {
+            toggle.checked = boxes.length > 0 && checked === boxes.length;
+            toggle.indeterminate = checked > 0 && checked < boxes.length;
+        }
+    };
+    const toggle = document.querySelector('[data-bulk-toggle]');
+    if (toggle) {
+        toggle.addEventListener('change', () => {
+            tbody.querySelectorAll('[data-bulk-check]').forEach((box) => { box.checked = toggle.checked; });
+            update();
+        });
+    }
+    tbody.addEventListener('change', (event) => {
+        if (event.target && event.target.matches('[data-bulk-check]')) update();
+    });
+    if (typeof MutationObserver === 'function') {
+        const observer = new MutationObserver(update);
+        observer.observe(tbody, { childList: true });
+    }
+    if (applyButton) {
+        applyButton.addEventListener('click', () => {
+            const ids = Array.from(tbody.querySelectorAll('[data-bulk-check]:checked')).map((box) => box.value);
+            if (!ids.length) return;
+            const status = statusSelect ? statusSelect.value : '';
+            withButtonFeedback(applyButton, async () => {
+                for (const id of ids) {
+                    await authApi(`${apiPath}/${encodeURIComponent(id)}`, {
+                        method: 'PUT',
+                        body: JSON.stringify({ [statusField]: status })
+                    });
+                }
+                showToast(`Updated ${ids.length} record${ids.length === 1 ? '' : 's'} to "${status}".`);
+                if (onApplied) onApplied();
+            }, { confirmMessage: `Change status to "${status}" for ${ids.length} selected record${ids.length === 1 ? '' : 's'}` });
+        });
+    }
+    update();
 }
 
 function downloadCsv(filename, rows) {
@@ -1155,23 +1301,30 @@ async function renderRecordsPage(type) {
                         <h3>${labels.services}</h3>
                         <div class="card-tools"><a class="btn-wn btn-wn-primary" href="/admin/dashboard.html">${ICONS.plus} New service</a></div>
                     </div>
+                    ${SEARCHABLE_TABLE_HTML(10)}
                     <div class="admin-table-wrap">
                         <table class="admin-table">
-                            <thead><tr><th>Service</th><th>Category</th><th>Summary</th><th>Deliverables</th><th>Price</th><th>Actions</th></tr></thead>
-                            <tbody>
-                                ${services.length ? services.map((service) => `
-                                    <tr>
-                                        <td class="cell-strong">${escapeHtml(service.name)}</td>
-                                        <td><span class="status-pill new">${escapeHtml(service.category)}</span></td>
-                                        <td class="cell-muted">${escapeHtml(service.summary)}</td>
-                                        <td class="cell-muted">${escapeHtml(service.deliverables || '—')}</td>
-                                        <td class="cell-muted">${escapeHtml(service.priceRange || '—')}</td>
-                                        <td><button class="btn-wn btn-wn-danger" data-delete-service="${service.id}">Delete</button></td>
-                                    </tr>`).join('') : '<tr><td colspan="6" class="cell-muted">No services yet.</td></tr>'}
-                            </tbody>
+                            <thead><tr><th scope="col">Service</th><th>Category</th><th>Summary</th><th>Deliverables</th><th>Price</th><th>Actions</th></tr></thead>
+                            <tbody id="services-records-body"></tbody>
                         </table>
                     </div>
                 </div>`;
+            setupSearchableTable({
+                items: services,
+                tbody: document.getElementById('services-records-body'),
+                rowTemplate: (service) => `
+                    <tr>
+                        <td class="cell-strong">${escapeHtml(service.name)}</td>
+                        <td><span class="status-pill new">${escapeHtml(service.category)}</span></td>
+                        <td class="cell-muted">${escapeHtml(service.summary)}</td>
+                        <td class="cell-muted">${escapeHtml(service.deliverables || '—')}</td>
+                        <td class="cell-muted">${escapeHtml(service.priceRange || '—')}</td>
+                        <td><button class="btn-wn btn-wn-danger" data-delete-service="${service.id}">Delete</button></td>
+                    </tr>`,
+                searchText: (service) => [service.name, service.category, service.summary].join(' '),
+                emptyText: 'No services yet.',
+                emptyColspan: 6
+            });
             document.querySelectorAll('[data-delete-service]').forEach((button) => {
                 button.addEventListener('click', () => {
                     withButtonFeedback(button, async () => {
@@ -1187,34 +1340,61 @@ async function renderRecordsPage(type) {
                 <div class="admin-card">
                     <div class="card-head">
                         <h3>${labels.inquiries}</h3>
-                        <button class="btn-wn btn-wn-secondary" id="export-records" type="button">${ICONS.download} Export CSV</button>
+                        <div class="card-tools"><button class="btn-wn btn-wn-secondary" id="export-records" type="button">${ICONS.download} Export CSV</button></div>
+                    </div>
+                    ${SEARCHABLE_TABLE_HTML(10)}
+                    <div class="bulk-bar">
+                        <span class="cell-muted" data-bulk-count></span>
+                        <select id="bulk-status-select" aria-label="Status to apply to selected records" style="border:1px solid var(--wn-border); border-radius:0.7rem; padding:0.4rem 0.5rem; font:inherit; font-size:0.8rem">
+                            <option value="new">New</option>
+                            <option value="contacted">Contacted</option>
+                            <option value="resolved">Resolved</option>
+                        </select>
+                        <button type="button" class="btn-wn btn-wn-secondary" id="bulk-apply" disabled>Apply to selected</button>
                     </div>
                     <div class="admin-table-wrap">
                         <table class="admin-table">
-                            <thead><tr><th>Name</th><th>Contact</th><th>Service</th><th>Message</th><th>Status</th><th>Action</th></tr></thead>
-                            <tbody>
-                                ${inquiries.length ? inquiries.map((item) => `
-                                    <tr>
-                                        <td class="cell-strong">${escapeHtml(item.name)}</td>
-                                        <td class="cell-muted">${escapeHtml(item.email)}<br/>${escapeHtml(item.phone)}</td>
-                                        <td>${escapeHtml(item.service_type)}</td>
-                                        <td class="cell-muted" style="max-width:260px">${escapeHtml(item.message)}</td>
-                                        <td><span class="status-pill ${statusClass(item.status)}">${escapeHtml(item.status)}</span></td>
-                                        <td>
-                                            <div style="display:flex; gap:0.4rem; align-items:center">
-                                                <select data-status-select="inquiry-${item.id}" style="border:1px solid var(--wn-border); border-radius:0.7rem; padding:0.4rem 0.5rem; font:inherit; font-size:0.8rem">
-                                                    <option value="new" ${item.status === 'new' ? 'selected' : ''}>New</option>
-                                                    <option value="contacted" ${item.status === 'contacted' ? 'selected' : ''}>Contacted</option>
-                                                    <option value="resolved" ${item.status === 'resolved' ? 'selected' : ''}>Resolved</option>
-                                                </select>
-                                                <button class="btn-wn btn-wn-secondary" data-update-inquiry="${item.id}">Save</button>
-                                            </div>
-                                        </td>
-                                    </tr>`).join('') : '<tr><td colspan="6" class="cell-muted">No inquiries yet.</td></tr>'}
-                            </tbody>
+                            <thead><tr><th scope="col" style="width:2.6rem"><input type="checkbox" data-bulk-toggle aria-label="Select all on this page" /></th><th scope="col">Name</th><th>Contact</th><th>Service</th><th>Message</th><th>Status</th><th>Action</th></tr></thead>
+                            <tbody id="inquiries-records-body"></tbody>
                         </table>
                     </div>
                 </div>`;
+            setupSearchableTable({
+                items: inquiries,
+                tbody: document.getElementById('inquiries-records-body'),
+                rowTemplate: (item) => `
+                    <tr>
+                        <td><input type="checkbox" data-bulk-check="${item.id}" value="${item.id}" aria-label="Select ${escapeHtml(item.name)}" /></td>
+                        <td class="cell-strong">${escapeHtml(item.name)}</td>
+                        <td class="cell-muted">${escapeHtml(item.email)}<br/>${escapeHtml(item.phone)}</td>
+                        <td>${escapeHtml(item.service_type)}</td>
+                        <td class="cell-muted" style="max-width:260px">${escapeHtml(item.message)}</td>
+                        <td><span class="status-pill ${statusClass(item.status)}">${escapeHtml(item.status)}</span></td>
+                        <td>
+                            <div style="display:flex; gap:0.4rem; align-items:center">
+                                <button type="button" class="btn-wn btn-wn-ghost" data-history-open="${item.id}">History</button>
+                                <select data-status-select="inquiry-${item.id}" style="border:1px solid var(--wn-border); border-radius:0.7rem; padding:0.4rem 0.5rem; font:inherit; font-size:0.8rem">
+                                    <option value="new" ${item.status === 'new' ? 'selected' : ''}>New</option>
+                                    <option value="contacted" ${item.status === 'contacted' ? 'selected' : ''}>Contacted</option>
+                                    <option value="resolved" ${item.status === 'resolved' ? 'selected' : ''}>Resolved</option>
+                                </select>
+                                <button class="btn-wn btn-wn-secondary" data-update-inquiry="${item.id}">Save</button>
+                            </div>
+                        </td>
+                    </tr>`,
+                searchText: (item) => [item.name, item.email, item.phone, item.service_type, item.status].join(' '),
+                emptyText: 'No inquiries yet.',
+                emptyColspan: 7,
+                afterRender: (rows) => wireHistoryButtons(rows)
+            });
+            setupBulkStatusBar({
+                tbody: document.getElementById('inquiries-records-body'),
+                countLabel: content.querySelector('[data-bulk-count]'),
+                applyButton: document.getElementById('bulk-apply'),
+                statusSelect: document.getElementById('bulk-status-select'),
+                apiPath: '/api/inquiries',
+                onApplied: () => renderRecordsPage(type)
+            });
             document.querySelectorAll('[data-update-inquiry]').forEach((button) => {
                 button.addEventListener('click', async () => {
                     const inquiryId = button.getAttribute('data-update-inquiry');
@@ -1235,40 +1415,23 @@ async function renderRecordsPage(type) {
                 <div class="admin-card">
                     <div class="card-head">
                         <h3>${labels.consultations}</h3>
-                        <button class="btn-wn btn-wn-secondary" id="export-records" type="button">${ICONS.download} Export CSV</button>
+                        <div class="card-tools"><button class="btn-wn btn-wn-secondary" id="export-records" type="button">${ICONS.download} Export CSV</button></div>
+                    </div>
+                    ${SEARCHABLE_TABLE_HTML(10)}
+                    <div class="bulk-bar">
+                        <span class="cell-muted" data-bulk-count></span>
+                        <select id="bulk-status-select" aria-label="Status to apply to selected records" style="border:1px solid var(--wn-border); border-radius:0.7rem; padding:0.4rem 0.5rem; font:inherit; font-size:0.8rem">
+                            <option value="pending">Pending</option>
+                            <option value="confirmed">Confirmed</option>
+                            <option value="completed">Completed</option>
+                            <option value="cancelled">Cancelled</option>
+                        </select>
+                        <button type="button" class="btn-wn btn-wn-secondary" id="bulk-apply" disabled>Apply to selected</button>
                     </div>
                     <div class="admin-table-wrap">
                         <table class="admin-table">
-                            <thead><tr><th>Requester</th><th>Preferred</th><th>Notes</th><th>Assigned</th><th>Status</th><th>Action</th></tr></thead>
-                            <tbody>
-                                ${consultations.length ? consultations.map((item) => `
-                                    <tr>
-                                        <td class="cell-strong">${escapeHtml(item.name)}<br/><span class="cell-muted">${escapeHtml(item.email)} · ${escapeHtml(item.phone)}</span></td>
-                                        <td class="cell-muted">${escapeHtml(item.preferred_date)} @ ${escapeHtml(item.preferred_time)}</td>
-                                        <td class="cell-muted" style="max-width:220px">${escapeHtml(item.notes || '—')}</td>
-                                        <td class="cell-muted">${escapeHtml(item.assignedDepartment || '—')} / ${escapeHtml(item.assignedWorker || '—')}</td>
-                                        <td><span class="status-pill ${statusClass(item.status)}">${escapeHtml(item.status)}</span></td>
-                                        <td>
-                                            <div style="display:flex; gap:0.4rem; align-items:center; flex-wrap:wrap; min-width:240px">
-                                                <select data-status-select="consultation-${item.id}" style="border:1px solid var(--wn-border); border-radius:0.7rem; padding:0.4rem 0.5rem; font:inherit; font-size:0.8rem">
-                                                    <option value="pending" ${item.status === 'pending' ? 'selected' : ''}>Pending</option>
-                                                    <option value="confirmed" ${item.status === 'confirmed' ? 'selected' : ''}>Confirmed</option>
-                                                    <option value="completed" ${item.status === 'completed' ? 'selected' : ''}>Completed</option>
-                                                    <option value="cancelled" ${item.status === 'cancelled' ? 'selected' : ''}>Cancelled</option>
-                                                </select>
-                                                <select data-department-select="consultation-${item.id}" style="border:1px solid var(--wn-border); border-radius:0.7rem; padding:0.4rem 0.5rem; font:inherit; font-size:0.8rem">
-                                                    <option value="">Dept</option>
-                                                    ${departmentOptions.map((department) => `<option value="${escapeHtml(department)}" ${item.assignedDepartment === department ? 'selected' : ''}>${escapeHtml(department)}</option>`).join('')}
-                                                </select>
-                                                <select data-worker-select="consultation-${item.id}" style="border:1px solid var(--wn-border); border-radius:0.7rem; padding:0.4rem 0.5rem; font:inherit; font-size:0.8rem">
-                                                    <option value="">Worker</option>
-                                                    ${workers.map((worker) => `<option value="${escapeHtml(worker.name)}" ${item.assignedWorker === worker.name ? 'selected' : ''}>${escapeHtml(worker.name)}</option>`).join('')}
-                                                </select>
-                                                <button class="btn-wn btn-wn-secondary" data-update-consultation="${item.id}">Save</button>
-                                            </div>
-                                        </td>
-                                    </tr>`).join('') : '<tr><td colspan="6" class="cell-muted">No consultations yet.</td></tr>'}
-                            </tbody>
+                            <thead><tr><th scope="col" style="width:2.6rem"><input type="checkbox" data-bulk-toggle aria-label="Select all on this page" /></th><th scope="col">Requester</th><th>Preferred</th><th>Notes</th><th>Assigned</th><th>Status</th><th>Action</th></tr></thead>
+                            <tbody id="consultations-records-body"></tbody>
                         </table>
                     </div>
                 </div>
@@ -1282,6 +1445,51 @@ async function renderRecordsPage(type) {
                             </div>`).join('')}
                     </div>
                 </div>`;
+            setupSearchableTable({
+                items: consultations,
+                tbody: document.getElementById('consultations-records-body'),
+                rowTemplate: (item) => `
+                    <tr>
+                        <td><input type="checkbox" data-bulk-check="${item.id}" value="${item.id}" aria-label="Select ${escapeHtml(item.name)}" /></td>
+                        <td class="cell-strong">${escapeHtml(item.name)}<br/><span class="cell-muted">${escapeHtml(item.email)} · ${escapeHtml(item.phone)}</span></td>
+                        <td class="cell-muted">${escapeHtml(item.preferred_date)} @ ${escapeHtml(item.preferred_time)}</td>
+                        <td class="cell-muted" style="max-width:220px">${escapeHtml(item.notes || '—')}</td>
+                        <td class="cell-muted">${escapeHtml(item.assignedDepartment || '—')} / ${escapeHtml(item.assignedWorker || '—')}</td>
+                        <td><span class="status-pill ${statusClass(item.status)}">${escapeHtml(item.status)}</span></td>
+                        <td>
+                            <div style="display:flex; gap:0.4rem; align-items:center; flex-wrap:wrap; min-width:264px">
+                                <button type="button" class="btn-wn btn-wn-ghost" data-history-open="${item.id}">History</button>
+                                <select data-status-select="consultation-${item.id}" style="border:1px solid var(--wn-border); border-radius:0.7rem; padding:0.4rem 0.5rem; font:inherit; font-size:0.8rem">
+                                    <option value="pending" ${item.status === 'pending' ? 'selected' : ''}>Pending</option>
+                                    <option value="confirmed" ${item.status === 'confirmed' ? 'selected' : ''}>Confirmed</option>
+                                    <option value="completed" ${item.status === 'completed' ? 'selected' : ''}>Completed</option>
+                                    <option value="cancelled" ${item.status === 'cancelled' ? 'selected' : ''}>Cancelled</option>
+                                </select>
+                                <select data-department-select="consultation-${item.id}" style="border:1px solid var(--wn-border); border-radius:0.7rem; padding:0.4rem 0.5rem; font:inherit; font-size:0.8rem">
+                                    <option value="">Dept</option>
+                                    ${departmentOptions.map((department) => `<option value="${escapeHtml(department)}" ${item.assignedDepartment === department ? 'selected' : ''}>${escapeHtml(department)}</option>`).join('')}
+                                </select>
+                                <select data-worker-select="consultation-${item.id}" style="border:1px solid var(--wn-border); border-radius:0.7rem; padding:0.4rem 0.5rem; font:inherit; font-size:0.8rem">
+                                    <option value="">Worker</option>
+                                    ${workers.map((worker) => `<option value="${escapeHtml(worker.name)}" ${item.assignedWorker === worker.name ? 'selected' : ''}>${escapeHtml(worker.name)}</option>`).join('')}
+                                </select>
+                                <button class="btn-wn btn-wn-secondary" data-update-consultation="${item.id}">Save</button>
+                            </div>
+                        </td>
+                    </tr>`,
+                searchText: (item) => [item.name, item.email, item.phone, item.preferred_date, item.assignedWorker, item.assignedDepartment, item.status].join(' '),
+                emptyText: 'No consultations yet.',
+                emptyColspan: 7,
+                afterRender: (rows) => wireHistoryButtons(rows)
+            });
+            setupBulkStatusBar({
+                tbody: document.getElementById('consultations-records-body'),
+                countLabel: content.querySelector('[data-bulk-count]'),
+                applyButton: document.getElementById('bulk-apply'),
+                statusSelect: document.getElementById('bulk-status-select'),
+                apiPath: '/api/consultations',
+                onApplied: () => renderRecordsPage(type)
+            });
             document.querySelectorAll('[data-update-consultation]').forEach((button) => {
                 button.addEventListener('click', async () => {
                     const consultationId = button.getAttribute('data-update-consultation');
@@ -1312,22 +1520,29 @@ async function renderRecordsPage(type) {
                         <h3>${labels.portfolio}</h3>
                         <div class="card-tools"><a class="btn-wn btn-wn-primary" href="/admin/dashboard.html">${ICONS.plus} New portfolio item</a></div>
                     </div>
+                    ${SEARCHABLE_TABLE_HTML(10)}
                     <div class="admin-table-wrap">
                         <table class="admin-table">
-                            <thead><tr><th>Title</th><th>Client</th><th>Category</th><th>Outcome</th><th>Actions</th></tr></thead>
-                            <tbody>
-                                ${portfolio.length ? portfolio.map((item) => `
-                                    <tr>
-                                        <td class="cell-strong">${escapeHtml(item.title)}</td>
-                                        <td class="cell-muted">${escapeHtml(item.client)}</td>
-                                        <td><span class="status-pill new">${escapeHtml(item.category)}</span></td>
-                                        <td class="cell-muted">${escapeHtml(item.outcome || '—')}</td>
-                                        <td><button class="btn-wn btn-wn-danger" data-delete-portfolio="${item.id}">Delete</button></td>
-                                    </tr>`).join('') : '<tr><td colspan="5" class="cell-muted">No portfolio items yet.</td></tr>'}
-                            </tbody>
+                            <thead><tr><th scope="col">Title</th><th>Client</th><th>Category</th><th>Outcome</th><th>Actions</th></tr></thead>
+                            <tbody id="portfolio-records-body"></tbody>
                         </table>
                     </div>
                 </div>`;
+            setupSearchableTable({
+                items: portfolio,
+                tbody: document.getElementById('portfolio-records-body'),
+                rowTemplate: (item) => `
+                    <tr>
+                        <td class="cell-strong">${escapeHtml(item.title)}</td>
+                        <td class="cell-muted">${escapeHtml(item.client)}</td>
+                        <td><span class="status-pill new">${escapeHtml(item.category)}</span></td>
+                        <td class="cell-muted">${escapeHtml(item.outcome || '—')}</td>
+                        <td><button class="btn-wn btn-wn-danger" data-delete-portfolio="${item.id}">Delete</button></td>
+                    </tr>`,
+                searchText: (item) => [item.title, item.client, item.category].join(' '),
+                emptyText: 'No portfolio items yet.',
+                emptyColspan: 5
+            });
             document.querySelectorAll('[data-delete-portfolio]').forEach((button) => {
                 button.addEventListener('click', () => {
                     withButtonFeedback(button, async () => {
@@ -1380,6 +1595,50 @@ function showCredentialsModal(title, staffId, password) {
             }
         });
     }
+}
+
+function showHistoryModal(title, history) {
+    const overlay = document.createElement('div');
+    overlay.className = 'credential-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-labelledby', 'history-modal-title');
+    overlay.innerHTML = `
+        <div class="credential-modal">
+            <button type="button" class="credential-close" aria-label="Close">&times;</button>
+            <h3 id="history-modal-title">${escapeHtml(title)} — status history</h3>
+            <div class="status-timeline">
+                ${(Array.isArray(history) ? [...history].reverse() : []).map((entry) => `
+                    <div class="timeline-entry">
+                        <span class="status-pill ${statusClass(entry.status)}">${escapeHtml(entry.status)}</span>
+                        <span class="timeline-meta">${escapeHtml(entry.by || 'system')} · ${escapeHtml(formatDate(entry.at))}</span>
+                    </div>`).join('') || '<p class="cell-muted">No history yet.</p>'}
+            </div>
+            <button class="btn-wn btn-wn-primary" type="button" id="history-close">Close</button>
+        </div>`;
+    const previousFocus = document.activeElement;
+    document.body.appendChild(overlay);
+    const close = wireDialogFocus(overlay, previousFocus);
+    overlay.addEventListener('click', (event) => {
+        if (event.target === overlay) close();
+    });
+    const closeButton = overlay.querySelector('.credential-close');
+    if (closeButton) closeButton.addEventListener('click', close);
+    const doneButton = overlay.querySelector('#history-close');
+    if (doneButton) doneButton.addEventListener('click', close);
+}
+
+function wireHistoryButtons(rows) {
+    document.querySelectorAll('[data-history-open]').forEach((button) => {
+        if (button.dataset.wired) return;
+        button.dataset.wired = 'true';
+        button.addEventListener('click', () => {
+            const id = button.getAttribute('data-history-open');
+            const item = rows.find((entry) => entry.id === id);
+            if (!item) return;
+            showHistoryModal(item.name || item.title, item.statusHistory);
+        });
+    });
 }
 
 function closeRowMenus() {
@@ -1480,7 +1739,7 @@ async function renderWorkersPage() {
                 </div>
                 <div class="admin-table-wrap">
                     <table class="admin-table" id="workers-table">
-                        <thead><tr><th>Staff ID</th><th>Worker</th><th>Email</th><th>Department</th><th>Role</th><th>Assignments</th><th class="actions-col">Actions</th></tr></thead>
+                        <thead><tr><th scope="col">Staff ID</th><th>Worker</th><th>Email</th><th>Department</th><th>Role</th><th>Assignments</th><th class="actions-col">Actions</th></tr></thead>
                         <tbody id="workers-tbody"></tbody>
                     </table>
                 </div>
@@ -1513,7 +1772,7 @@ async function renderWorkersPage() {
                 </div>
                 <div class="admin-table-wrap">
                     <table class="admin-table">
-                        <thead><tr><th>Staff ID</th><th>Name</th><th>Email</th><th>Access</th><th>Actions</th></tr></thead>
+                        <thead><tr><th scope="col">Staff ID</th><th>Name</th><th>Email</th><th>Access</th><th>Actions</th></tr></thead>
                         <tbody>
                             ${users.map((user) => `
                                 <tr>
@@ -1907,7 +2166,7 @@ async function renderReportsPage() {
     const content = document.getElementById('admin-content');
     try {
         const reports = await authApi('/api/admin/reports');
-        const unread = reports.filter((report) => !report.read).length;
+        const unread = reports.filter((report) => !report.read && report.status !== 'draft').length;
         content.innerHTML = `
             <div class="dept-stats">
                 <div class="stat-card"><strong>${reports.length}</strong><span>Total reports</span></div>
@@ -1926,55 +2185,80 @@ async function renderReportsPage() {
                         </select>
                     </div>
                 </div>
+                ${(() => {
+                    const departments = [...new Set(reports.map((r) => r.department).filter(Boolean))].sort();
+                    return departments.length
+                        ? `<div class="table-toolbar">
+                            <select id="reports-toolbar-dept" class="table-filter" aria-label="Filter reports by department">
+                                <option value="">All departments</option>
+                                ${departments.map((department) => `<option value="${escapeHtml(department)}">${escapeHtml(department)}</option>`).join('')}
+                            </select>
+                            <span class="cell-muted" id="reports-toolbar-count" data-searchable-count></span>
+                            <div class="table-pagination" id="reports-toolbar-pager" data-searchable-pager></div>
+                        </div>`
+                        : '';
+                })()}
                 <div class="admin-table-wrap">
                     <table class="admin-table">
-                        <thead><tr><th>Report</th><th>Worker</th><th>Department</th><th>Submitted</th><th>Status</th><th style="text-align:right">Actions</th></tr></thead>
+                        <thead><tr><th scope="col">Report</th><th>Worker</th><th>Department</th><th>Submitted</th><th>Status</th><th style="text-align:right">Actions</th></tr></thead>
                         <tbody id="reports-body"></tbody>
                     </table>
                 </div>
             </div>`;
 
-        renderReportsTable(reports);
+        const rememberFilterControls = { search: document.getElementById('reports-search'), status: document.getElementById('reports-status-filter'), dept: document.getElementById('reports-toolbar-dept') };
 
-        document.getElementById('reports-search').addEventListener('input', () => renderReportsTable(reports));
-        document.getElementById('reports-status-filter').addEventListener('change', () => renderReportsTable(reports));
+        const reportsTable = setupSearchableTable({
+            items: reports,
+            tbody: document.getElementById('reports-body'),
+            rowTemplate: (report) => reportsRowTemplate(report),
+            searchText: (report) => [report.title, report.notes, report.workerName, report.department, report.fileName].join(' '),
+            searchInput: rememberFilterControls.search,
+            extraFilter: (report) => {
+                const statusValue = rememberFilterControls.status ? rememberFilterControls.status.value : 'all';
+                const deptValue = rememberFilterControls.dept ? rememberFilterControls.dept.value : '';
+                const matchesStatus = statusValue === 'all' || (statusValue === 'read' ? report.read : !report.read);
+                return matchesStatus && (!deptValue || report.department === deptValue);
+            },
+            afterRender: (rows) => reportsWireActions(rows),
+            emptyText: 'No reports match your filters.',
+            emptyColspan: 6,
+            perPage: 10
+        });
+        if (rememberFilterControls.status) {
+            rememberFilterControls.status.addEventListener('change', () => reportsTable.refresh());
+        }
+        if (rememberFilterControls.dept) {
+            rememberFilterControls.dept.addEventListener('change', () => reportsTable.refresh());
+        }
     } catch (error) {
         content.innerHTML = `<div class="admin-card"><p class="cell-muted">${escapeHtml(error.message)}</p></div>`;
     }
 }
 
-function renderReportsTable(reports) {
-    const body = document.getElementById('reports-body');
-    if (!body) return;
-    const searchValue = (document.getElementById('reports-search')?.value || '').toLowerCase();
-    const statusFilter = document.getElementById('reports-status-filter')?.value || 'all';
-    const filtered = reports.filter((report) => {
-        const matchesStatus = statusFilter === 'all' || (statusFilter === 'read' ? report.read : !report.read);
-        const haystack = [report.title, report.notes, report.workerName, report.department, report.fileName].join(' ').toLowerCase();
-        return matchesStatus && (!searchValue || haystack.includes(searchValue));
-    });
-
-    body.innerHTML = filtered.length ? filtered.map((report) => `
+function reportsRowTemplate(report) {
+    return `
         <tr class="${report.read ? '' : 'report-row-unread'}">
-            <td class="cell-strong">${escapeHtml(report.title)}${report.notes ? `<br/><span class="cell-muted">${escapeHtml(report.notes)}</span>` : ''}<br/><span class="cell-muted">${escapeHtml(report.fileName)} · ${(report.fileSize / 1024).toFixed(0)} KB</span></td>
+            <td class="cell-strong">${escapeHtml(report.title)}${report.notes ? `<br/><span class="cell-muted">${escapeHtml(report.notes)}</span>` : ''}<br/><span class="cell-muted">${report.fileName ? escapeHtml(`${report.fileName} · ${(report.fileSize / 1024).toFixed(0)} KB`) : 'No file attached'}</span></td>
             <td class="cell-muted">${escapeHtml(report.workerName)}</td>
             <td class="cell-muted">${escapeHtml(report.department || '—')}</td>
             <td class="cell-muted">${escapeHtml(formatDate(report.submittedAt))}</td>
-            <td><span class="status-pill ${report.read ? 'contacted' : 'new'}">${report.read ? 'Read' : 'New'}</span></td>
+            <td><span class="status-pill ${report.status === 'draft' ? 'idle' : (report.read ? 'contacted' : 'new')}">${report.status === 'draft' ? 'Draft' : (report.read ? 'Read' : 'New')}</span></td>
             <td>
                 <div style="display:flex; gap:0.4rem; align-items:center; justify-content:flex-end; flex-wrap:wrap">
-                    <a class="btn-wn btn-wn-secondary" href="${report.fileData}" target="_blank" rel="noopener">${ICONS.eye} View</a>
-                    <a class="btn-wn btn-wn-ghost" href="${report.fileData}" download="${escapeHtml(report.fileName)}">${ICONS.download}</a>
+                    <a class="btn-wn btn-wn-secondary" href="/api/admin/reports/${report.id}/download?inline=1" target="_blank" rel="noopener">${ICONS.eye} View</a>
+                    <a class="btn-wn btn-wn-ghost" href="/api/admin/reports/${report.id}/download" download="${escapeHtml(report.fileName)}">${ICONS.download}</a>
                     <button class="btn-wn btn-wn-secondary" data-report-toggle="${report.id}">${report.read ? 'Mark unread' : 'Mark read'}</button>
                     <button class="btn-wn btn-wn-danger" data-report-delete="${report.id}">Delete</button>
                 </div>
             </td>
-        </tr>`).join('')
-        : '<tr><td colspan="6" class="cell-muted">No reports match your filters.</td></tr>';
+        </tr>`;
+}
 
+function reportsWireActions(rows) {
     document.querySelectorAll('[data-report-toggle]').forEach((button) => {
         button.addEventListener('click', () => {
-            const report = reports.find((item) => item.id === button.getAttribute('data-report-toggle'));
+            const report = rows.find((item) => item.id === button.getAttribute('data-report-toggle'));
             if (!report) return;
             withButtonFeedback(button, async () => {
                 await authApi(`/api/admin/reports/${report.id}`, {
@@ -1987,7 +2271,7 @@ function renderReportsTable(reports) {
     });
     document.querySelectorAll('[data-report-delete]').forEach((button) => {
         button.addEventListener('click', () => {
-            const report = reports.find((item) => item.id === button.getAttribute('data-report-delete'));
+            const report = rows.find((item) => item.id === button.getAttribute('data-report-delete'));
             if (!report) return;
             withButtonFeedback(button, async () => {
                 await authApi(`/api/admin/reports/${report.id}`, { method: 'DELETE' });
@@ -2142,12 +2426,10 @@ function wirePasswordToggles() {
 }
 
 function storeAuth(data) {
-    localStorage.setItem('worldnet_token', data.token);
     localStorage.setItem('worldnet_admin', JSON.stringify(data.admin || {}));
 }
 
 function storeWorkerAuth(data) {
-    localStorage.setItem('worldnet_worker_token', data.token);
     localStorage.setItem('worldnet_worker_profile', JSON.stringify(data.worker || {}));
 }
 
@@ -2364,7 +2646,7 @@ function currentPageInfo() {
 }
 
 function initAdmin() {
-    if (!getToken()) {
+    if (!hasSession()) {
         window.location.href = '/admin/login.html';
         return;
     }
@@ -2402,11 +2684,58 @@ function initAdmin() {
     }
 }
 
+function wireFirstSetup() {
+    const setupForm = document.getElementById('setup-form');
+    const loginForm = document.getElementById('login-form');
+    const forgotLink = document.getElementById('forgot-link');
+    if (!setupForm) return;
+
+    fetch('/api/auth/config')
+        .then((res) => res.json().catch(() => ({})))
+        .then((data) => {
+            if (!data.needsSetup) return;
+            if (loginForm) loginForm.hidden = true;
+            if (forgotLink) forgotLink.hidden = true;
+            document.querySelector('.login-card h1').textContent = 'Set up your console';
+            document.querySelector('.login-card > .login-sub').textContent = 'Create the administrator account to unlock the team console.';
+            setupForm.hidden = false;
+        })
+        .catch(() => { });
+
+    setupForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const payload = Object.fromEntries(new FormData(setupForm).entries());
+        const button = setupForm.querySelector('button[type="submit"]');
+        if (button) { button.disabled = true; button.textContent = 'Creating account…'; }
+        try {
+            const res = await fetch('/api/admin/first-setup', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || 'Setup failed');
+            if (loginForm) loginForm.hidden = false;
+            setupForm.hidden = true;
+            if (forgotLink) forgotLink.hidden = false;
+            showToast(data.message || 'Administrator account created. Sign in to continue.');
+            setTimeout(() => {
+                const identifier = document.getElementById('identifier');
+                if (identifier) identifier.focus();
+            }, 100);
+        } catch (error) {
+            if (button) { button.disabled = false; button.textContent = 'Create administrator account'; }
+            showToast(error.message);
+        }
+    });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     applyTheme();
     watchSystemTheme();
     wireThemeToggle();
     wirePasswordToggles();
+    wireFirstSetup();
     wireLogin();
     wireForgotPassword();
     wireResetPassword();

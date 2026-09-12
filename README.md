@@ -61,7 +61,10 @@ That will display the WorldNet homepage.
 
 - `npm install` – install required files
 - `npm start` – run the website
-- `npm test` – run the regression suite for API and admin flows
+- `npm test` – run the integration suite (API + admin + worker workflows)
+- `npm run check` – syntax-check every JavaScript file
+- `npm run verify` – run the syntax check and the full test suite
+- `npm run test:e2e` / `npm run test:axe` / `npm run test:load` – print run instructions for the Playwright, axe-core, and k6 suites (browser/load runner not bundled)
 
 ## Deployment
 
@@ -72,10 +75,14 @@ and configure the required environment variables before going live.
 
 ## Sprint 3 handover notes
 
-- The admin dashboard is available at `/admin/login.html` and uses the default credentials `admin@worldnetict.com` / `admin123`.
-- Admin users can create and remove services, add portfolio items, and update inquiry or consultation statuses from the dashboard.
-- Form submissions and admin updates are persisted to PostgreSQL. Configure `DATABASE_URL` in `src/.env` before starting the app.
-- The automated tests cover the health endpoint, appointments, consultation tracking and withdrawal, notifications, and admin workflows.
+- The admin console is available at `/admin/login.html` and also acts as the team (worker) login. Sign-in is session-cookie based; sessions expire after `TOKEN_TTL_HOURS` (default 8h).
+- **First run:** with `SEED_DEMO_DATA=false` (recommended in production) a fresh database has **no accounts** and the login page shows a **"Create the first admin account"** screen. Use it, then change nothing — just sign in.
+- **Local demo only:** with the demo seeds enabled, the default credentials are `admin@worldnetict.com` / `admin123` (admins) and the seeded `@worldnetict.com` workers with `worker123`. Demo credentials are **not seeded in production**.
+- Reports (PDFs) are stored on disk under `UPLOAD_DIR` and downloaded through authenticated endpoints; uploaded files older than `REPORT_RETENTION_DAYS` are pruned automatically.
+- Admin actions (logins, status changes, user/worker changes, report handling) are recorded in `audit_logs` and visible to admins via `GET /api/admin/audit-logs`.
+- Form submissions and admin updates are persisted to PostgreSQL. Configure `DATABASE_URL` plus a **strong `JWT_SECRET`** (32+ chars — the server refuses to start in production without one) in `src/.env` before starting the app.
+- **Demo persistence:** without PostgreSQL (`DATABASE_URL=pg-mem://worldnet-test`) the app snapshots its state to `DEMO_SNAPSHOT_PATH` (default `os.tmpdir()/worldnet-demo/demo-state.json`) so demo records survive restarts. Point it outside the repo if you override it.
+- The automated tests cover the health endpoint, appointments, consultation tracking and withdrawal, notifications, cookie/CSRF login, first-run setup, report uploads/downloads, admin workflows, status-change history, report drafts, bulk status updates, and demo-state persistence.
 
 Enjoy exploring the WorldNet portal locally!
 

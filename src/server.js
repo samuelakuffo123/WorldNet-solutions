@@ -9,17 +9,55 @@ import rateLimit from 'express-rate-limit';
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 import { closeDatabase, loadDatabase, saveDatabase } from './database.js';
+import { config } from './config.js';
+import { logger, requestLogger } from './logger.js';
+import {
+    validateFields,
+    validateName,
+    validateText,
+    isValidEmail,
+    canTransition,
+    validateStatus,
+    REPORT_STATUSES,
+    CONSULTATION_STATUSES
+} from './validation.js';
+import {
+    parseCookies,
+    setSessionCookies,
+    clearSessionCookies,
+    csrfProtect,
+    securityHeaders,
+    sanitizeFileName,
+    fileKeyFor,
+    fileExists,
+    readFileBuffer,
+    unlinkFile,
+    pruneStoredFiles,
+    decodeDataUrl,
+    storeFile
+} from './security.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const PORT = process.env.PORT || 3000;
-const JWT_SECRET = process.env.JWT_SECRET || 'worldnet-dev-secret';
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
 const app = express();
-app.use(cors());
-app.use(express.json({ limit: '16mb' }));
+app.set('trust proxy', 1);
+app.use(requestLogger);
+app.use(securityHeaders);
+app.use(cors({
+    origin: config.corsOrigins.length
+        ? (origin, callback) => {
+            if (!origin || config.corsOrigins.includes(origin)) return callback(null, true);
+            return callback(new Error('Not allowed by CORS'));
+        }
+        : false,
+    credentials: true
+}));
+app.use(express.json({ limit: config.isProduction ? '4mb' : '16mb' }));
 app.use(express.urlencoded({ extended: true }));
+app.use(resolveAuth);
+app.use(csrfProtect);
 
 const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: process.env.NODE_ENV === 'test' ? 1000 : 12, standardHeaders: true, legacyHeaders: false });
 const formLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: process.env.NODE_ENV === 'test' ? 1000 : 60, standardHeaders: true, legacyHeaders: false });
@@ -95,7 +133,7 @@ const initialServices = [
         description: 'We build custom applications — from SmartBank branch banking software and loan tracking systems to the Government of Ghana Index Linked Bond (GGILB) software and securities systems for the Securities and Exchange Commission. We support SQL Server, MySQL and Oracle platforms.',
         icon: 'code',
         features: ['Custom application development', 'Banking & financial software', 'Government & securities systems', 'SQL Server, MySQL, Oracle support'],
-        deliverables: 'Requirements analysis, software design, development, testing, training, support',
+        deliverables: 'Requirements analysis, software design, development, testing, support',
         priceRange: 'Custom quote'
     },
     {
@@ -175,44 +213,54 @@ const initialPortfolio = [
     }
 ];
 
-const initialData = {
-    services: initialServices,
-    portfolio: initialPortfolio,
-    inquiries: [],
-    consultations: [],
-    notifications: [],
-    reports: [],
-    workers: [
-        { id: 'WNS-001', name: 'Ama Boateng', department: 'Infrastructure', role: 'Network Engineer', email: 'ama.boateng@worldnetict.com', passwordHash: bcrypt.hashSync('worker123', 10), tempPassword: 'worker123' },
-        { id: 'WNS-002', name: 'Kofi Mensah', department: 'Security', role: 'Security Analyst', email: 'kofi.mensah@worldnetict.com', passwordHash: bcrypt.hashSync('worker123', 10), tempPassword: 'worker123' },
-        { id: 'WNS-003', name: 'Nadia Ali', department: 'Cloud', role: 'Solutions Architect', email: 'nadia.ali@worldnetict.com', passwordHash: bcrypt.hashSync('worker123', 10), tempPassword: 'worker123' }
-    ],
-    admins: [
-        {
-            id: 'ADM-001',
-            name: 'System Admin',
-            email: 'admin@worldnetict.com',
-            passwordHash: bcrypt.hashSync('admin123', 10),
-            role: 'admin',
-            tempPassword: 'admin123'
+function buildInitialData() {
+    const seedUsers = config.seedDemoData && !config.isProduction;
+    return {
+        services: initialServices,
+        portfolio: initialPortfolio,
+        inquiries: [],
+        consultations: [],
+        notifications: [],
+        reports: [],
+        auditLogs: [],
+        workers: seedUsers
+            ? [
+                { id: 'WNS-001', name: 'Ama Boateng', department: 'Infrastructure', role: 'Network Engineer', email: 'ama.boateng@worldnetict.com', passwordHash: bcrypt.hashSync('worker123', 10), tempPassword: 'worker123' },
+                { id: 'WNS-002', name: 'Kofi Mensah', department: 'Security', role: 'Security Analyst', email: 'kofi.mensah@worldnetict.com', passwordHash: bcrypt.hashSync('worker123', 10), tempPassword: 'worker123' },
+                { id: 'WNS-003', name: 'Nadia Ali', department: 'Cloud', role: 'Solutions Architect', email: 'nadia.ali@worldnetict.com', passwordHash: bcrypt.hashSync('worker123', 10), tempPassword: 'worker123' }
+            ]
+            : [],
+        admins: seedUsers
+            ? [
+                {
+                    id: 'ADM-001',
+                    name: 'System Admin',
+                    email: 'admin@worldnetict.com',
+                    passwordHash: bcrypt.hashSync('admin123', 10),
+                    role: 'admin',
+                    tempPassword: 'admin123'
+                }
+            ]
+            : [],
+        settings: {
+            companyName: 'WorldNet ICT Solutions',
+            contactEmail: 'info@worldnetictsolutions.com',
+            contactPhone: '+233 55 344 6842'
         }
-    ],
-    settings: {
-        companyName: 'WorldNet ICT Solutions',
-        contactEmail: 'info@worldnetictsolutions.com',
-        contactPhone: '+233 55 344 6842'
-    }
-};
+    };
+}
 
-let state = { ...initialData };
+let state = { ...buildInitialData() };
 let saveQueue = Promise.resolve();
 const recentSubmissions = new Map();
 
 async function loadState() {
     try {
-        state = await loadDatabase(initialData, { reset: process.env.NODE_ENV === 'test' });
+        state = await loadDatabase(buildInitialData(), { reset: process.env.NODE_ENV === 'test' });
+        const pruned = pruneStoredFiles(state.reports);
+        if (pruned > 0) logger.info(`Pruned ${pruned} expired report file(s).`);
     } catch (error) {
-        console.error('Database could not be initialized.', error.message);
+        logger.error('Database could not be initialized.', { error: error.message });
         throw error;
     }
 }
@@ -236,12 +284,8 @@ function sanitizeText(value) {
     return String(value || '').trim().replace(/\s+/g, ' ');
 }
 
-function isValidEmail(value) {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-}
-
 function createToken(payload) {
-    return jwt.sign(payload, JWT_SECRET, { expiresIn: '8h' });
+    return jwt.sign(payload, config.jwtSecret, { expiresIn: `${config.tokenTtlHours}h` });
 }
 
 function sha256(value) {
@@ -281,6 +325,12 @@ function toPublicAdmin(admin) {
     return publicAdmin;
 }
 
+function toPublicReport(report) {
+    if (!report) return report;
+    const { fileData, ...publicReport } = report;
+    return publicReport;
+}
+
 function sanitizeProfilePhoto(value) {
     if (typeof value !== 'string') return '';
     const trimmed = value.trim();
@@ -289,22 +339,7 @@ function sanitizeProfilePhoto(value) {
     return '';
 }
 
-const MAX_REPORT_BASE64 = 11 * 1024 * 1024;
-
-function sanitizePdfUpload(value) {
-    if (typeof value !== 'string') return '';
-    const data = value.trim();
-    if (!data.startsWith('data:application/pdf;base64,')) return '';
-    if (data.length > MAX_REPORT_BASE64) return '';
-    let decoded = '';
-    try {
-        decoded = Buffer.from(data.slice(data.indexOf(',') + 1), 'base64').toString('latin1');
-    } catch (_error) {
-        return '';
-    }
-    if (!decoded.startsWith('%PDF')) return '';
-    return data;
-}
+const ACTIVE_REPORTS = () => state.reports.filter((report) => !report.deleted);
 
 function normalizeDepartmentHeads() {
     const seen = new Set();
@@ -318,23 +353,44 @@ function normalizeDepartmentHeads() {
     }
 }
 
-function authRequired(req, res, next) {
+function resolveAuth(req, _res, next) {
     const header = req.headers.authorization || '';
-    const token = header.startsWith('Bearer ') ? header.slice(7) : null;
-    if (!token) {
-        return res.status(401).json({ error: 'Unauthorized' });
+    const bearerToken = header.startsWith('Bearer ') ? header.slice(7) : null;
+    const cookies = parseCookies(req.headers.cookie);
+    req.csrfToken = cookies[config.csrfCookieName] || '';
+    if (bearerToken) {
+        req.authVia = 'bearer';
+        req.tokenSource = bearerToken;
+    } else if (cookies[config.cookieName]) {
+        req.authVia = 'cookie';
+        req.tokenSource = cookies[config.cookieName];
     }
-    try {
-        req.admin = jwt.verify(token, JWT_SECRET);
-        next();
-    } catch (error) {
+    if (req.tokenSource) {
+        try {
+            req.admin = jwt.verify(req.tokenSource, config.jwtSecret);
+        } catch (error) {
+            req.authError = 'invalid';
+        }
+    }
+    next();
+}
+
+function authRequired(req, res, next) {
+    if (req.authError) {
         return res.status(401).json({ error: 'Invalid token' });
     }
+    if (!req.admin) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+    next();
 }
 
 function adminRequired(req, res, next) {
     if (!req.admin || req.admin.role !== 'admin') {
         return res.status(403).json({ error: 'Admin access required' });
+    }
+    if (!state.admins.some((admin) => admin.id === req.admin.id)) {
+        return res.status(403).json({ error: 'Your admin account is no longer active. Please contact IT support.' });
     }
     next();
 }
@@ -342,6 +398,9 @@ function adminRequired(req, res, next) {
 function workerRequired(req, res, next) {
     if (!req.admin || req.admin.role !== 'worker') {
         return res.status(403).json({ error: 'Worker access required' });
+    }
+    if (!state.workers.some((worker) => worker.id === req.admin.id)) {
+        return res.status(403).json({ error: 'Your team account is no longer active. Please contact an administrator.' });
     }
     next();
 }
@@ -354,6 +413,36 @@ function duplicateCheck(key, ttlMs = 5 * 60 * 1000) {
     }
     recentSubmissions.set(key, now);
     return false;
+}
+
+function recordAudit(action, actor, actorId, targetType, targetId, details = {}) {
+    state.auditLogs.unshift({
+        id: `audit-${crypto.randomBytes(4).toString('hex')}`,
+        action,
+        actor: actor || '',
+        actorId: actorId || '',
+        targetType: targetType || '',
+        targetId: targetId || '',
+        details,
+        createdAt: new Date().toISOString()
+    });
+    if (state.auditLogs.length > 5000) state.auditLogs.length = 5000;
+}
+
+function appendStatusHistory(item, status, by) {
+    const history = Array.isArray(item.statusHistory) ? item.statusHistory : [];
+    return {
+        ...item,
+        status,
+        statusHistory: [...history, { status, at: new Date().toISOString(), by: by || 'system' }]
+    };
+}
+
+function initStatusHistory(item, by) {
+    return {
+        ...item,
+        statusHistory: [{ status: item.status || 'new', at: new Date().toISOString(), by: by || 'system' }]
+    };
 }
 
 async function sendEmail({ to, subject, text, html }) {
@@ -444,6 +533,7 @@ app.post('/api/services', authRequired, async (req, res) => {
         priceRange: sanitizeText(priceRange || 'Custom quote')
     };
     state.services.unshift(service);
+    recordAudit('service.create', req.admin.name, req.admin.id, 'service', service.id, { name: service.name });
     await saveState();
     res.status(201).json(service);
 });
@@ -453,6 +543,7 @@ app.put('/api/services/:id', authRequired, async (req, res) => {
     if (index < 0) return res.status(404).json({ error: 'Service not found' });
     const updated = { ...state.services[index], ...req.body, id: state.services[index].id, slug: req.body.slug || state.services[index].slug };
     state.services[index] = updated;
+    recordAudit('service.update', req.admin.name, req.admin.id, 'service', updated.id, { name: updated.name });
     await saveState();
     res.json(updated);
 });
@@ -461,6 +552,7 @@ app.delete('/api/services/:id', authRequired, async (req, res) => {
     const index = state.services.findIndex((service) => service.id === req.params.id || service.slug === req.params.id);
     if (index < 0) return res.status(404).json({ error: 'Service not found' });
     state.services[index] = { ...state.services[index], deleted: true, deletedAt: new Date().toISOString() };
+    recordAudit('service.delete', req.admin.name, req.admin.id, 'service', req.params.id);
     await saveState();
     res.json({ ok: true });
 });
@@ -479,6 +571,7 @@ app.post('/api/portfolio', authRequired, async (req, res) => {
         outcome: sanitizeText(outcome || '')
     };
     state.portfolio.unshift(item);
+    recordAudit('portfolio.create', req.admin.name, req.admin.id, 'portfolio', item.id, { title: item.title });
     await saveState();
     res.status(201).json(item);
 });
@@ -487,6 +580,7 @@ app.delete('/api/portfolio/:id', authRequired, async (req, res) => {
     const index = state.portfolio.findIndex((item) => item.id === req.params.id);
     if (index < 0) return res.status(404).json({ error: 'Portfolio item not found' });
     state.portfolio.splice(index, 1);
+    recordAudit('portfolio.delete', req.admin.name, req.admin.id, 'portfolio', req.params.id);
     await saveState();
     res.json({ ok: true });
 });
@@ -495,26 +589,34 @@ app.get('/api/inquiries', authRequired, (_req, res) => res.json(state.inquiries)
 
 app.post('/api/inquiries', formLimiter, async (req, res) => {
     const { name, company, email, phone, service_type, message } = req.body;
-    if (!name || !email || !phone || !service_type || !message) return res.status(400).json({ error: 'Please complete every required field.' });
-    if (!isValidEmail(email)) return res.status(400).json({ error: 'Enter a valid email address.' });
+    const errors = validateFields(req.body, {
+        name: { required: true, maxLength: 200 },
+        email: { required: true, type: 'email', maxLength: 254 },
+        phone: { required: true, type: 'phone', maxLength: 30 },
+        service_type: { required: true, maxLength: 200 },
+        message: { required: true, maxLength: 5000 }
+    });
+    if (errors.length) return res.status(400).json({ error: errors[0] });
     const submissionKey = `${email}:${phone}:${service_type}`.toLowerCase();
     if (duplicateCheck(submissionKey)) return res.status(409).json({ error: 'A similar request was submitted recently. Please wait a moment and try again.' });
 
-    const inquiry = {
+    let inquiry = {
         id: `inq-${crypto.randomBytes(3).toString('hex')}`,
-        name: sanitizeText(name),
-        company: sanitizeText(company || ''),
-        email: sanitizeText(email).toLowerCase(),
+        name: validateName(name),
+        company: validateText(company || '', 200),
+        email: String(email).trim().toLowerCase(),
         phone: sanitizeText(phone),
-        service_type: sanitizeText(service_type),
-        message: sanitizeText(message),
+        service_type: validateText(service_type),
+        message: validateText(message, 5000),
         status: 'new',
         handledBy: '',
         handledAt: '',
         createdAt: new Date().toISOString()
     };
+    inquiry = initStatusHistory(inquiry, 'client');
     state.inquiries.unshift(inquiry);
     createNotification('inquiry', inquiry, 'New inquiry received', `${inquiry.name} submitted a new request for ${inquiry.service_type}.`);
+    recordAudit('inquiry.create', 'public', '', 'inquiry', inquiry.id, { email: inquiry.email });
     await saveState();
     await notifySubmission('inquiry', inquiry);
     res.status(201).json({ ok: true, inquiry });
@@ -525,12 +627,22 @@ app.put('/api/inquiries/:id', authRequired, async (req, res) => {
     if (index < 0) return res.status(404).json({ error: 'Inquiry not found' });
     const handledBy = req.admin?.name ? String(req.admin.name) : (req.body.handledBy || state.inquiries[index].handledBy || '');
     const handledAt = handledBy && !state.inquiries[index].handledBy ? new Date().toISOString() : (req.body.handledAt || state.inquiries[index].handledAt || '');
-    state.inquiries[index] = {
+    if (req.body.status) {
+        if (!validateStatus(req.body.status, 'inquiry')) return res.status(400).json({ error: 'Unsupported inquiry status.' });
+        if (req.body.status !== state.inquiries[index].status && !canTransition(state.inquiries[index].status, req.body.status, 'inquiry')) {
+            return res.status(400).json({ error: `Cannot change inquiry status from ${state.inquiries[index].status} to ${req.body.status}.` });
+        }
+    }
+    const statusChanged = req.body.status && req.body.status !== state.inquiries[index].status;
+    let next = {
         ...state.inquiries[index],
         ...req.body,
         handledBy,
         handledAt
     };
+    if (statusChanged) next = appendStatusHistory(next, req.body.status, req.admin.name);
+    state.inquiries[index] = next;
+    recordAudit('inquiry.update', req.admin.name, req.admin.id, 'inquiry', state.inquiries[index].id, { status: state.inquiries[index].status });
     await saveState();
     res.json(state.inquiries[index]);
 });
@@ -538,7 +650,11 @@ app.put('/api/inquiries/:id', authRequired, async (req, res) => {
 app.put('/api/inquiries/:id/withdraw', async (req, res) => {
     const index = state.inquiries.findIndex((item) => item.id === req.params.id);
     if (index < 0) return res.status(404).json({ error: 'Inquiry not found' });
-    state.inquiries[index] = { ...state.inquiries[index], status: 'withdrawn' };
+    if (state.inquiries[index].status !== 'new' && !canTransition(state.inquiries[index].status, 'withdrawn', 'inquiry')) {
+        return res.status(400).json({ error: 'This inquiry can no longer be withdrawn.' });
+    }
+    state.inquiries[index] = appendStatusHistory(state.inquiries[index], 'withdrawn', 'client');
+    recordAudit('inquiry.withdraw', 'public', '', 'inquiry', state.inquiries[index].id);
     await saveState();
     res.json(state.inquiries[index]);
 });
@@ -580,7 +696,14 @@ app.put('/api/consultations/:id', authRequired, async (req, res) => {
     if (index < 0) return res.status(404).json({ error: 'Consultation not found' });
     const handledBy = req.admin?.name ? String(req.admin.name) : (req.body.handledBy || state.consultations[index].handledBy || '');
     const handledAt = handledBy && !state.consultations[index].handledBy ? new Date().toISOString() : (req.body.handledAt || state.consultations[index].handledAt || '');
-    state.consultations[index] = {
+    if (req.body.status) {
+        if (!validateStatus(req.body.status, 'consultation')) return res.status(400).json({ error: 'Unsupported consultation status.' });
+        if (req.body.status !== state.consultations[index].status && !canTransition(state.consultations[index].status, req.body.status, 'consultation')) {
+            return res.status(400).json({ error: `Cannot change consultation status from ${state.consultations[index].status} to ${req.body.status}.` });
+        }
+    }
+    const statusChanged = req.body.status && req.body.status !== state.consultations[index].status;
+    let next = {
         ...state.consultations[index],
         ...req.body,
         assignedDepartment: req.body.assignedDepartment || state.consultations[index].assignedDepartment || '',
@@ -588,6 +711,9 @@ app.put('/api/consultations/:id', authRequired, async (req, res) => {
         handledBy,
         handledAt
     };
+    if (statusChanged) next = appendStatusHistory(next, req.body.status, req.admin.name);
+    state.consultations[index] = next;
+    recordAudit('consultation.update', req.admin.name, req.admin.id, 'consultation', state.consultations[index].id, { status: state.consultations[index].status });
     await saveState();
     res.json(state.consultations[index]);
 });
@@ -600,26 +726,36 @@ app.put('/api/consultations/:id/withdraw', async (req, res) => {
     if (!email || !phone || state.consultations[index].email !== email || state.consultations[index].phone !== phone) {
         return res.status(403).json({ error: 'You can only withdraw your own consultation request.' });
     }
-    state.consultations[index] = { ...state.consultations[index], status: 'withdrawn' };
+    if (!canTransition(state.consultations[index].status, 'withdrawn', 'consultation')) {
+        return res.status(400).json({ error: 'This consultation can no longer be withdrawn.' });
+    }
+    state.consultations[index] = appendStatusHistory(state.consultations[index], 'withdrawn', 'client');
+    recordAudit('consultation.withdraw', 'public', '', 'consultation', state.consultations[index].id);
     await saveState();
     res.json(state.consultations[index]);
 });
 
 app.post('/api/consultations', formLimiter, async (req, res) => {
     const { name, company, email, phone, preferred_date, preferred_time, notes } = req.body;
-    if (!name || !email || !phone || !preferred_date || !preferred_time) return res.status(400).json({ error: 'Please complete every required consultation field.' });
-    if (!isValidEmail(email)) return res.status(400).json({ error: 'Enter a valid email address.' });
+    const errors = validateFields(req.body, {
+        name: { required: true, maxLength: 200 },
+        email: { required: true, type: 'email', maxLength: 254 },
+        phone: { required: true, type: 'phone', maxLength: 30 },
+        preferred_date: { required: true, type: 'date' },
+        preferred_time: { required: true, type: 'time' }
+    });
+    if (errors.length) return res.status(400).json({ error: errors[0] });
     const submissionKey = `${email}:${phone}:${preferred_date}:${preferred_time}`.toLowerCase();
     if (duplicateCheck(submissionKey)) return res.status(409).json({ error: 'A similar consultation request was submitted recently.' });
-    const consultation = {
+    let consultation = {
         id: `con-${crypto.randomBytes(3).toString('hex')}`,
-        name: sanitizeText(name),
-        company: sanitizeText(company || ''),
-        email: sanitizeText(email).toLowerCase(),
+        name: validateName(name),
+        company: validateText(company || '', 200),
+        email: String(email).trim().toLowerCase(),
         phone: sanitizeText(phone),
         preferred_date: sanitizeText(preferred_date),
         preferred_time: sanitizeText(preferred_time),
-        notes: sanitizeText(notes || ''),
+        notes: validateText(notes || '', 5000),
         status: 'pending',
         assignedDepartment: '',
         assignedWorker: '',
@@ -627,8 +763,10 @@ app.post('/api/consultations', formLimiter, async (req, res) => {
         handledAt: '',
         createdAt: new Date().toISOString()
     };
+    consultation = initStatusHistory(consultation, 'client');
     state.consultations.unshift(consultation);
     createNotification('consultation', consultation, 'New consultation request', `${consultation.name} requested a consultation for ${consultation.preferred_date} at ${consultation.preferred_time}.`);
+    recordAudit('consultation.create', 'public', '', 'consultation', consultation.id, { email: consultation.email });
     await saveState();
     await notifySubmission('consultation', consultation);
     res.status(201).json({ ok: true, consultation });
@@ -636,34 +774,33 @@ app.post('/api/consultations', formLimiter, async (req, res) => {
 
 app.post('/api/appointments', formLimiter, async (req, res) => {
     const { name, company, email, phone, preferred_date, preferred_time, notes } = req.body;
-    if (!name || !email || !phone || !preferred_date || !preferred_time) {
-        return res.status(400).json({ error: 'Please complete every required appointment field.' });
-    }
-    if (!isValidEmail(email)) return res.status(400).json({ error: 'Enter a valid email address.' });
+    const errors = validateFields(req.body, {
+        name: { required: true, maxLength: 200 },
+        email: { required: true, type: 'email', maxLength: 254 },
+        phone: { required: true, type: 'phone', maxLength: 30 },
+        preferred_date: { required: true, type: 'future-date' },
+        preferred_time: { required: true, type: 'time' }
+    });
+    if (errors.length) return res.status(400).json({ error: errors[0] });
 
-    const selectedDate = new Date(`${preferred_date}T00:00:00`);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    if (selectedDate < today) {
-        return res.status(400).json({ error: 'Please choose a future date.' });
-    }
-
-    const appointment = {
+    let appointment = {
         id: `apt-${crypto.randomBytes(3).toString('hex')}`,
-        name: sanitizeText(name),
-        company: sanitizeText(company || ''),
-        email: sanitizeText(email).toLowerCase(),
+        name: validateName(name),
+        company: validateText(company || '', 200),
+        email: String(email).trim().toLowerCase(),
         phone: sanitizeText(phone),
         preferred_date: sanitizeText(preferred_date),
         preferred_time: sanitizeText(preferred_time),
-        notes: sanitizeText(notes || ''),
+        notes: validateText(notes || '', 5000),
         status: 'pending',
         handledBy: '',
         handledAt: '',
         createdAt: new Date().toISOString()
     };
+    appointment = initStatusHistory(appointment, 'client');
     state.consultations.unshift(appointment);
     createNotification('consultation', appointment, 'New appointment request', `${appointment.name} requested an appointment for ${appointment.preferred_date} at ${appointment.preferred_time}.`);
+    recordAudit('appointment.create', 'public', '', 'appointment', appointment.id, { email: appointment.email });
     await saveState();
     await notifySubmission('consultation', appointment);
     res.status(201).json({ ok: true, appointment });
@@ -678,8 +815,8 @@ app.get('/api/admin/stats', authRequired, (_req, res) => {
         admins: state.admins.length,
         workers: state.workers.length,
         notifications: state.notifications.filter((item) => !item.read).length,
-        reports: state.reports.length,
-        unreadReports: state.reports.filter((item) => !item.read).length
+        reports: ACTIVE_REPORTS().length,
+        unreadReports: ACTIVE_REPORTS().filter((item) => !item.read).length
     });
 });
 
@@ -693,31 +830,73 @@ app.put('/api/admin/notifications/:id/read', authRequired, async (req, res) => {
     res.json(notification);
 });
 
-app.get('/api/admin/reports', authRequired, adminRequired, (_req, res) => res.json(state.reports));
+app.get('/api/admin/audit-logs', authRequired, adminRequired, (req, res) => {
+    const { limit, action } = req.query;
+    let logs = state.auditLogs;
+    if (action) logs = logs.filter((log) => log.action === String(action));
+    logs = logs.slice(0, Math.min(Number(limit || 200), 500));
+    res.json(logs);
+});
+
+app.get('/api/admin/reports', authRequired, adminRequired, (_req, res) => res.json(ACTIVE_REPORTS().map(toPublicReport)));
 
 app.put('/api/admin/reports/:id/read', authRequired, adminRequired, async (req, res) => {
-    const report = state.reports.find((item) => item.id === req.params.id);
+    const report = ACTIVE_REPORTS().find((item) => item.id === req.params.id);
     if (!report) return res.status(404).json({ error: 'Report not found' });
     report.read = true;
+    recordAudit('report.read', req.admin.name, req.admin.id, 'report', report.id);
     await saveState();
-    res.json(report);
+    res.json(toPublicReport(report));
 });
 
 app.put('/api/admin/reports/:id', authRequired, adminRequired, async (req, res) => {
-    const report = state.reports.find((item) => item.id === req.params.id);
-    if (!report) return res.status(404).json({ error: 'Report not found' });
+    const index = state.reports.findIndex((item) => item.id === req.params.id && !item.deleted);
+    if (index < 0) return res.status(404).json({ error: 'Report not found' });
+    let report = state.reports[index];
     if (typeof req.body.read === 'boolean') report.read = req.body.read;
-    if (typeof req.body.status === 'string') report.status = sanitizeText(req.body.status);
+    if (typeof req.body.status === 'string') {
+        if (!REPORT_STATUSES.includes(req.body.status)) return res.status(400).json({ error: 'Unsupported report status.' });
+        const nextStatus = sanitizeText(req.body.status);
+        if (nextStatus !== report.status) report = appendStatusHistory(report, nextStatus, req.admin.name);
+        report.status = nextStatus;
+    }
+    state.reports[index] = report;
+    recordAudit('report.update', req.admin.name, req.admin.id, 'report', report.id, { status: report.status, read: report.read });
     await saveState();
-    res.json(report);
+    res.json(toPublicReport(report));
 });
 
 app.delete('/api/admin/reports/:id', authRequired, adminRequired, async (req, res) => {
-    const index = state.reports.findIndex((item) => item.id === req.params.id);
+    const index = state.reports.findIndex((item) => item.id === req.params.id && !item.deleted);
     if (index < 0) return res.status(404).json({ error: 'Report not found' });
-    const [removed] = state.reports.splice(index, 1);
+    const removed = state.reports[index];
+    state.reports[index] = { ...removed, deleted: true, deletedAt: new Date().toISOString() };
+    unlinkFile(removed.fileKey);
+    recordAudit('report.delete', req.admin.name, req.admin.id, 'report', removed.id);
     await saveState();
-    res.json({ ok: true, report: removed });
+    res.json({ ok: true, report: { id: removed.id, deleted: true } });
+});
+
+app.get('/api/admin/reports/:id/download', authRequired, adminRequired, (req, res) => {
+    const report = ACTIVE_REPORTS().find((item) => item.id === req.params.id);
+    if (!report) return res.status(404).json({ error: 'Report not found' });
+    const buffer = readFileBuffer(report.fileKey);
+    if (!buffer) return res.status(404).json({ error: 'The report file is no longer available.' });
+    const disposition = req.query.inline === '1' ? 'inline' : 'attachment';
+    res.setHeader('Content-Type', report.fileType || 'application/pdf');
+    res.setHeader('Content-Disposition', `${disposition}; filename="${sanitizeFileName(report.fileName)}"`);
+    res.send(buffer);
+});
+
+app.get('/api/worker/reports/:id/download', authRequired, workerRequired, (req, res) => {
+    const report = ACTIVE_REPORTS().find((item) => item.id === req.params.id && item.workerId === req.admin.id);
+    if (!report) return res.status(404).json({ error: 'Report not found' });
+    const buffer = readFileBuffer(report.fileKey);
+    if (!buffer) return res.status(404).json({ error: 'The report file is no longer available.' });
+    const disposition = req.query.inline === '1' ? 'inline' : 'attachment';
+    res.setHeader('Content-Type', report.fileType || 'application/pdf');
+    res.setHeader('Content-Disposition', `${disposition}; filename="${sanitizeFileName(report.fileName)}"`);
+    res.send(buffer);
 });
 
 app.get('/api/admin/users', authRequired, adminRequired, (_req, res) => {
@@ -749,6 +928,7 @@ app.post('/api/admin/users', authRequired, adminRequired, async (req, res) => {
         tempPassword: providedPassword
     };
     state.admins.push(admin);
+    recordAudit('admin.create', req.admin.name, req.admin.id, 'admin', admin.id, { email: admin.email });
     await saveState();
     res.status(201).json({ ok: true, admin: toPublicAdmin(admin) });
 });
@@ -759,6 +939,7 @@ app.post('/api/admin/users/:id/reset-password', authRequired, adminRequired, asy
     const tempPassword = generateTempPassword();
     state.admins[index].passwordHash = bcrypt.hashSync(tempPassword, 10);
     state.admins[index].tempPassword = tempPassword;
+    recordAudit('admin.password_reset', req.admin.name, req.admin.id, 'admin', state.admins[index].id);
     await saveState();
     res.json({ ok: true, id: state.admins[index].id, password: tempPassword });
 });
@@ -766,7 +947,11 @@ app.post('/api/admin/users/:id/reset-password', authRequired, adminRequired, asy
 app.delete('/api/admin/users/:id', authRequired, adminRequired, async (req, res) => {
     const index = state.admins.findIndex((admin) => admin.id === req.params.id);
     if (index < 0) return res.status(404).json({ error: 'User not found' });
+    if (state.admins.length === 1 && req.params.id === state.admins[0].id) {
+        return res.status(400).json({ error: 'The last admin account cannot be deleted.' });
+    }
     const [removed] = state.admins.splice(index, 1);
+    recordAudit('admin.delete', req.admin.name, req.admin.id, 'admin', removed.id, { email: removed.email });
     await saveState();
     res.json({ ok: true, admin: { id: removed.id, name: removed.name, email: removed.email } });
 });
@@ -802,6 +987,7 @@ app.post('/api/admin/workers', authRequired, adminRequired, async (req, res) => 
     };
     state.workers.push(worker);
     normalizeDepartmentHeads();
+    recordAudit('worker.create', req.admin.name, req.admin.id, 'worker', worker.id, { name: worker.name, department: worker.department });
     await saveState();
     res.status(201).json(toPublicWorker(worker));
 });
@@ -812,6 +998,7 @@ app.post('/api/admin/workers/:id/reset-password', authRequired, adminRequired, a
     const tempPassword = generateTempPassword();
     state.workers[index].passwordHash = bcrypt.hashSync(tempPassword, 10);
     state.workers[index].tempPassword = tempPassword;
+    recordAudit('worker.password_reset', req.admin.name, req.admin.id, 'worker', state.workers[index].id);
     await saveState();
     res.json({ ok: true, id: state.workers[index].id, password: tempPassword });
 });
@@ -850,6 +1037,7 @@ app.put('/api/admin/workers/:id', authRequired, adminRequired, async (req, res) 
         }
         return consultation;
     });
+    recordAudit('worker.update', req.admin.name, req.admin.id, 'worker', state.workers[index].id, { name: state.workers[index].name });
     await saveState();
     res.json(toPublicWorker(state.workers[index]));
 });
@@ -883,8 +1071,39 @@ app.delete('/api/admin/workers/:id', authRequired, adminRequired, async (req, re
             ? { ...consultation, assignedWorker: '' }
             : consultation
     ));
+    recordAudit('worker.delete', req.admin.name, req.admin.id, 'worker', worker.id, { name: worker.name });
     await saveState();
     res.json({ ok: true, worker });
+});
+
+app.get('/api/admin/status', (_req, res) => {
+    res.json({ ok: true, ready: state.admins.length > 0 });
+});
+
+app.post('/api/admin/first-setup', authLimiter, async (req, res) => {
+    if (state.admins.length > 0) {
+        return res.status(409).json({ error: 'The administrative account has already been created.' });
+    }
+    const name = sanitizeText(req.body.name);
+    const email = String(req.body.email || '').trim().toLowerCase();
+    const password = String(req.body.password || '');
+    if (!name || !email || !password) return res.status(400).json({ error: 'Name, email, and password are required.' });
+    if (!isValidEmail(email)) return res.status(400).json({ error: 'Please enter a valid email address.' });
+    if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters.' });
+    if (state.workers.some((worker) => worker.email && worker.email.toLowerCase() === email)) {
+        return res.status(409).json({ error: 'This email is already used by a team member.' });
+    }
+    const admin = {
+        id: nextSequentialId(state.admins, 'ADM'),
+        name,
+        email,
+        passwordHash: bcrypt.hashSync(password, 10),
+        role: 'admin'
+    };
+    state.admins.push(admin);
+    recordAudit('admin.first_setup', admin.name, admin.id, 'admin', admin.id, { email: admin.email });
+    await saveState();
+    res.status(201).json({ ok: true, message: 'Administrator account created. You can now sign in.' });
 });
 
 app.post('/api/login', loginLimiter, async (req, res) => {
@@ -905,6 +1124,9 @@ app.post('/api/login', loginLimiter, async (req, res) => {
             await saveState();
         }
         const token = createToken({ id: admin.id, email: admin.email, name: admin.name, role: 'admin' });
+        setSessionCookies(res, token);
+        recordAudit('admin.login', admin.name, admin.id, 'admin', admin.id);
+        await saveState();
         return res.json({ ok: true, role: 'admin', token, admin: { id: admin.id, name: admin.name, email: admin.email, profilePhoto: admin.profilePhoto || '' } });
     }
 
@@ -915,18 +1137,37 @@ app.post('/api/login', loginLimiter, async (req, res) => {
             await saveState();
         }
         const token = createToken({ id: worker.id, email: worker.email, name: worker.name, role: 'worker' });
+        setSessionCookies(res, token);
+        recordAudit('worker.login', worker.name, worker.id, 'worker', worker.id);
+        await saveState();
         return res.json({ ok: true, role: 'worker', token, worker: { id: worker.id, name: worker.name, email: worker.email, department: worker.department, role: worker.role, profilePhoto: worker.profilePhoto || '', isDepartmentHead: Boolean(worker.isDepartmentHead) } });
     }
 
     return res.status(401).json({ error: 'Invalid staff ID/email or password.' });
 });
 
-app.post('/api/logout', (_req, res) => res.json({ ok: true }));
+app.post('/api/logout', (_req, res) => {
+    clearSessionCookies(res);
+    res.json({ ok: true });
+});
+
+app.get('/api/me', authRequired, (req, res) => {
+    const admin = state.admins.find((item) => item.id === req.admin.id);
+    if (admin) {
+        return res.json({ ok: true, role: 'admin', admin: toPublicAdmin(admin) });
+    }
+    const worker = state.workers.find((item) => item.id === req.admin.id);
+    if (worker) {
+        return res.json({ ok: true, role: 'worker', worker: toPublicWorker(worker) });
+    }
+    return res.status(404).json({ error: 'Account not found' });
+});
 
 app.get('/api/auth/config', (_req, res) => {
     res.json({
         allowRegistration: false,
-        googleClientId: process.env.GOOGLE_CLIENT_ID || ''
+        googleClientId: process.env.GOOGLE_CLIENT_ID || '',
+        needsSetup: state.admins.length === 0
     });
 });
 
@@ -946,6 +1187,9 @@ app.post('/api/worker/login', loginLimiter, async (req, res) => {
         await saveState();
     }
     const token = createToken({ id: worker.id, email: worker.email, name: worker.name, role: 'worker' });
+    setSessionCookies(res, token);
+    recordAudit('worker.login', worker.name, worker.id, 'worker', worker.id);
+    await saveState();
     res.json({ ok: true, token, worker: { id: worker.id, name: worker.name, email: worker.email, department: worker.department, role: worker.role, profilePhoto: worker.profilePhoto || '', isDepartmentHead: Boolean(worker.isDepartmentHead) } });
 });
 
@@ -957,37 +1201,113 @@ app.get('/api/worker/me', authRequired, workerRequired, (req, res) => {
 });
 
 app.get('/api/worker/reports', authRequired, workerRequired, (req, res) => {
-    res.json(state.reports.filter((report) => report.workerId === req.admin.id));
+    res.json(state.reports.filter((report) => report.workerId === req.admin.id && !report.deleted).map(toPublicReport));
 });
 
 app.post('/api/worker/reports', authRequired, workerRequired, async (req, res) => {
     const worker = state.workers.find((item) => item.id === req.admin.id);
     if (!worker) return res.status(404).json({ error: 'Worker not found' });
     const title = sanitizeText(req.body.title);
-    const notes = sanitizeText(req.body.notes || '');
-    const fileName = sanitizeText(req.body.fileName) || 'report.pdf';
-    const fileData = sanitizePdfUpload(req.body.fileData);
     if (!title) return res.status(400).json({ error: 'Report title is required.' });
-    if (!fileData) return res.status(400).json({ error: 'Please attach a valid PDF file (max 8 MB).' });
-    const report = {
-        id: `rep-${crypto.randomBytes(3).toString('hex')}`,
+
+    const isDraft = sanitizeText(req.body.status) === 'draft';
+    let fileKey = '';
+    let fileName = '';
+    let fileSize = 0;
+    const reportId = `rep-${crypto.randomBytes(3).toString('hex')}`;
+    if (req.body.fileData) {
+        const decoded = decodeDataUrl(req.body.fileData, 'application/pdf');
+        if (!decoded.ok) return res.status(400).json({ error: 'Please attach a valid PDF file (max 8 MB).' });
+        fileKey = fileKeyFor(reportId, '.pdf');
+        storeFile(fileKey, decoded.buffer);
+        fileName = sanitizeFileName(req.body.fileName);
+        fileSize = decoded.buffer.length;
+    } else if (!isDraft) {
+        return res.status(400).json({ error: 'Please attach a valid PDF file (max 8 MB).' });
+    }
+
+    let report = {
+        id: reportId,
         workerId: worker.id,
         workerName: worker.name,
         department: worker.department || '',
         title,
-        notes,
+        notes: validateText(req.body.notes || '', 10000),
         fileName,
         fileType: 'application/pdf',
-        fileData,
-        fileSize: Number(req.body.fileSize || 0),
-        status: 'new',
+        fileKey,
+        fileData: '',
+        fileSize,
+        status: isDraft ? 'draft' : 'new',
         read: false,
-        submittedAt: new Date().toISOString()
+        submittedAt: new Date().toISOString(),
+        deleted: false
     };
+    report = initStatusHistory(report, worker.name);
     state.reports.unshift(report);
-    createNotification('report', report, 'New report submitted', `${worker.name} submitted a report: ${title}`);
+    if (!isDraft) {
+        createNotification('report', report, 'New report submitted', `${worker.name} submitted a report: ${title}`);
+        recordAudit('report.create', worker.name, worker.id, 'report', report.id, { title: report.title });
+    } else {
+        recordAudit('report.draft_saved', worker.name, worker.id, 'report', report.id, { title: report.title });
+    }
     await saveState();
-    res.status(201).json({ ok: true, report });
+    const pruned = pruneStoredFiles(state.reports);
+    if (pruned > 0) logger.info(`Pruned ${pruned} expired report file(s).`);
+    res.status(201).json({ ok: true, report: toPublicReport(report) });
+});
+
+app.put('/api/worker/reports/:id', authRequired, workerRequired, async (req, res) => {
+    const worker = state.workers.find((item) => item.id === req.admin.id);
+    if (!worker) return res.status(404).json({ error: 'Worker not found' });
+    const index = state.reports.findIndex((item) => item.id === req.params.id && item.workerId === worker.id && !item.deleted);
+    if (index < 0) return res.status(404).json({ error: 'Report not found' });
+    const current = state.reports[index];
+    if (current.status !== 'draft') {
+        return res.status(403).json({ error: 'Only draft reports can be edited.' });
+    }
+    const title = req.body.title !== undefined ? sanitizeText(req.body.title) : current.title;
+    if (!title) return res.status(400).json({ error: 'Report title is required.' });
+    const notes = req.body.notes !== undefined ? validateText(req.body.notes || '', 10000) : current.notes;
+    let fileKey = current.fileKey;
+    let fileName = current.fileName;
+    let fileSize = current.fileSize;
+    let pastedData = '';
+    if (req.body.fileData) {
+        const decoded = decodeDataUrl(req.body.fileData, 'application/pdf');
+        if (!decoded.ok) return res.status(400).json({ error: 'Please attach a valid PDF file (max 8 MB).' });
+        const nextKey = fileKeyFor(current.id, '.pdf');
+        storeFile(nextKey, decoded.buffer);
+        if (fileKey && fileKey !== nextKey) unlinkFile(fileKey);
+        fileKey = nextKey;
+        fileName = sanitizeFileName(req.body.fileName) || current.fileName;
+        fileSize = decoded.buffer.length;
+    }
+    const isSubmit = sanitizeText(req.body.status) === 'new';
+    if (isSubmit && !current.fileKey && !req.body.fileData) {
+        return res.status(400).json({ error: 'Attach a PDF file before submitting the report.' });
+    }
+    let report = {
+        ...current,
+        title,
+        notes,
+        fileKey,
+        fileName,
+        fileSize,
+        fileData: pastedData,
+        status: isSubmit ? 'new' : 'draft',
+        submittedAt: isSubmit ? new Date().toISOString() : current.submittedAt
+    };
+    if (isSubmit && current.status !== 'new') report = appendStatusHistory(report, 'new', worker.name);
+    state.reports[index] = report;
+    if (isSubmit) {
+        createNotification('report', report, 'New report submitted', `${worker.name} submitted a report: ${title}`);
+        recordAudit('report.submit', worker.name, worker.id, 'report', report.id, { title: report.title });
+    } else {
+        recordAudit('report.draft_updated', worker.name, worker.id, 'report', report.id, { title: report.title });
+    }
+    await saveState();
+    res.json({ ok: true, report: toPublicReport(report) });
 });
 
 app.get('/api/worker/department', authRequired, workerRequired, (req, res) => {
@@ -998,7 +1318,7 @@ app.get('/api/worker/department', authRequired, workerRequired, (req, res) => {
     }
     const members = state.workers.filter((item) => item.department === worker.department).map(toPublicWorker);
     const consultations = state.consultations.filter((item) => item.assignedDepartment === worker.department);
-    const reports = state.reports.filter((item) => item.department === worker.department);
+    const reports = state.reports.filter((item) => item.department === worker.department && !item.deleted).map(toPublicReport);
     res.json({ department: worker.department, workers: members, consultations, reports });
 });
 
@@ -1014,9 +1334,16 @@ app.put('/api/worker/consultations/:id', authRequired, workerRequired, async (re
         return res.status(403).json({ error: 'This consultation is not assigned to your department.' });
     }
     const status = sanitizeText(req.body.status) || consultation.status;
+    if (!CONSULTATION_STATUSES.includes(status)) return res.status(400).json({ error: 'Unsupported consultation status.' });
+    if (status !== consultation.status && !canTransition(consultation.status, status, 'consultation')) {
+        return res.status(400).json({ error: `Cannot change consultation status from ${consultation.status} to ${status}.` });
+    }
     const handledBy = worker.name || consultation.handledBy;
     const handledAt = handledBy && !consultation.handledBy ? new Date().toISOString() : consultation.handledAt;
-    state.consultations[index] = { ...consultation, status, handledBy, handledAt };
+    let next = { ...consultation, status, handledBy, handledAt };
+    if (status !== consultation.status) next = appendStatusHistory(next, status, worker.name);
+    state.consultations[index] = next;
+    recordAudit('worker.consultation.update', worker.name, worker.id, 'consultation', consultation.id, { status });
     await saveState();
     res.json(state.consultations[index]);
 });
@@ -1037,6 +1364,7 @@ app.put('/api/profile', authRequired, async (req, res) => {
             consultation.assignedWorker === previousName ? { ...consultation, assignedWorker: name } : consultation
         ));
     }
+    recordAudit(isAdmin ? 'admin.profile_update' : 'worker.profile_update', list[index].name, list[index].id, isAdmin ? 'admin' : 'worker', list[index].id);
     await saveState();
     return res.json(isAdmin ? toPublicAdmin(list[index]) : toPublicWorker(list[index]));
 });
@@ -1079,6 +1407,7 @@ app.post('/api/reset-password', authLimiter, async (req, res) => {
     delete admin.resetTokenHash;
     delete admin.resetTokenExpires;
     delete admin.tempPassword;
+    recordAudit('admin.password_reset', admin.name, admin.id, 'admin', admin.id);
     await saveState();
     res.json({ ok: true, message: 'Password updated. You can now sign in.' });
 });
@@ -1118,13 +1447,22 @@ app.post('/api/auth/google', authLimiter, async (req, res) => {
         await saveState();
     }
     const token = createToken({ id: admin.id, email: admin.email, name: admin.name, role: admin.role });
+    setSessionCookies(res, token);
+    recordAudit('admin.login', admin.name, admin.id, 'admin', admin.id, { provider: 'google' });
+    await saveState();
     res.json({ ok: true, token, admin: { id: admin.id, name: admin.name, email: admin.email, role: admin.role, profilePhoto: admin.profilePhoto || '' }, provider: 'google' });
 });
 
 app.get('/api/settings', (_req, res) => res.json(state.settings));
 
 app.put('/api/settings', authRequired, async (req, res) => {
-    state.settings = { ...state.settings, ...req.body };
+    const allowed = ['companyName', 'contactEmail', 'contactPhone'];
+    const updates = {};
+    for (const key of allowed) {
+        if (req.body[key] !== undefined) updates[key] = sanitizeText(req.body[key]);
+    }
+    state.settings = { ...state.settings, ...updates };
+    recordAudit('settings.update', req.admin.name, req.admin.id, 'settings', 'application', updates);
     await saveState();
     res.json(state.settings);
 });
@@ -1150,14 +1488,14 @@ app.get('*', (_req, res) => {
     res.status(404).json({ error: 'Not found' });
 });
 
-async function startServer(port = PORT) {
+async function startServer(port = config.port) {
     await loadState();
-    return app.listen(port, () => console.log(`WorldNet Sprint 1 server running on http://localhost:${port}`));
+    return app.listen(port, () => logger.info(`WorldNet server running on http://localhost:${port}`));
 }
 
 if (process.env.NODE_ENV !== 'test') {
     startServer().catch((error) => {
-        console.error('Failed to start server', error);
+        logger.error('Failed to start server', { error: error.message });
         process.exit(1);
     });
 }

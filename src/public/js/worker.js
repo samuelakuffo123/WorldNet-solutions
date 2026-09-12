@@ -4,11 +4,15 @@
    consultations assigned to them.
    ============================================================ */
 
-const WORKER_TOKEN_KEY = 'worldnet_worker_token';
 const WORKER_PROFILE_KEY = 'worldnet_worker_profile';
 
-function getWorkerToken() {
-    return localStorage.getItem(WORKER_TOKEN_KEY);
+function getCsrfToken() {
+    const match = document.cookie.split(';').map((s) => s.trim()).find((c) => c.startsWith('wn_csrf='));
+    return match ? decodeURIComponent(match.split('=').slice(1).join('=')) : '';
+}
+
+function hasSession() {
+    return getCsrfToken() !== '';
 }
 
 function getWorkerProfile() {
@@ -20,12 +24,10 @@ function getWorkerProfile() {
 }
 
 function storeWorkerAuth(data) {
-    localStorage.setItem(WORKER_TOKEN_KEY, data.token);
-    localStorage.setItem(WORKER_PROFILE_KEY, JSON.stringify(data.worker));
+    localStorage.setItem(WORKER_PROFILE_KEY, JSON.stringify(data.worker || {}));
 }
 
 function clearWorkerAuth() {
-    localStorage.removeItem(WORKER_TOKEN_KEY);
     localStorage.removeItem(WORKER_PROFILE_KEY);
 }
 
@@ -303,12 +305,24 @@ function formatDate(value) {
 }
 
 async function workerApi(path, options = {}) {
-    const res = await fetch(path, {
-        headers: { 'Content-Type': 'application/json', ...(options.headers || {}), Authorization: `Bearer ${getWorkerToken()}` },
-        ...options
-    });
+    const method = String(options.method || 'GET').toUpperCase();
+    const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+    if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
+        const csrf = getCsrfToken();
+        if (csrf) headers['X-CSRF-Token'] = csrf;
+    }
+    const res = await fetch(path, { ...options, method, headers });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || 'Request failed');
+    if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+            clearWorkerAuth();
+            if (!window.location.pathname.endsWith('/login.html')) {
+                showToast('Your session has expired. Please sign in again.');
+                setTimeout(() => { window.location.href = '/admin/login.html'; }, 700);
+            }
+        }
+        throw new Error(data.error || 'Request failed');
+    }
     return data;
 }
 
@@ -397,7 +411,7 @@ function renderWorkerDashboard(worker, assignments) {
                 ${assignments.length ? `
                 <div class="admin-table-wrap">
                     <table class="admin-table">
-                        <thead><tr><th>Requester</th><th>Company</th><th>Preferred</th><th>Notes</th><th>Status</th></tr></thead>
+                        <thead><tr><th scope="col">Requester</th><th>Company</th><th>Preferred</th><th>Notes</th><th>Status</th></tr></thead>
                         <tbody>
                             ${assignments.map((item) => `
                                 <tr>
@@ -413,8 +427,10 @@ function renderWorkerDashboard(worker, assignments) {
             </div>
         </main>`;
 
-    document.getElementById('worker-logout-btn').addEventListener('click', () => {
+    document.getElementById('worker-logout-btn').addEventListener('click', async () => {
         clearWorkerAuth();
+        const csrf = getCsrfToken();
+        await fetch('/api/logout', { method: 'POST', headers: csrf ? { 'X-CSRF-Token': csrf } : {} }).catch(() => { });
         window.location.href = '/admin/login.html';
     });
 
@@ -440,46 +456,86 @@ function loadWorkerReports(worker) {
                     <div><label for="report-file">PDF file</label><input id="report-file" type="file" name="file" accept="application/pdf,.pdf" required /></div>
                 </div>
                 <div><label for="report-notes">Notes</label><textarea id="report-notes" name="notes" rows="3" placeholder="Optional summary for the admin"></textarea></div>
-                <button type="submit" class="btn-wn btn-wn-primary">Send report</button>
+                <div style="display:flex; gap:0.5rem; flex-wrap:wrap">
+                    <button type="submit" class="btn-wn btn-wn-primary">Send report</button>
+                    <button type="button" class="btn-wn btn-wn-secondary" id="report-save-draft">Save draft</button>
+                </div>
             </form>
             <div id="worker-reports-list" style="margin-top:0.9rem"></div>
         </div>`);
 
     const form = document.getElementById('report-form');
+    let editingId = '';
     form.addEventListener('submit', async (event) => {
         event.preventDefault();
-        const fileInput = form.querySelector('input[name="file"]');
-        const submitButton = form.querySelector('button[type="submit"]');
-        const title = form.title.value.trim();
-        const notes = form.notes.value.trim();
-        if (!title) {
-            showToast('Please enter a report title.');
-            return;
-        }
-        submitButton.disabled = true;
-        submitButton.textContent = 'Sending…';
-        try {
-            const file = fileInput.files && fileInput.files[0];
-            const pdf = await readPdfFile(file);
-            await workerApi('/api/worker/reports', {
-                method: 'POST',
-                body: JSON.stringify({ title, notes, fileName: pdf.fileName, fileSize: pdf.fileSize, fileData: pdf.dataUrl })
-            });
-            form.reset();
-            showToast('Report sent to the admin.');
-            renderWorkerReports(worker.id);
-        } catch (error) {
-            showToast(error.message);
-        } finally {
-            submitButton.disabled = false;
-            submitButton.textContent = 'Send report';
-        }
+        await submitReportForm(form, editingId, 'new');
+        editingId = '';
+        form.dataset.editing = '';
     });
+
+    const saveDraftBtn = document.getElementById('report-save-draft');
+    if (saveDraftBtn) {
+        saveDraftBtn.addEventListener('click', async () => {
+            await submitReportForm(form, editingId, 'draft');
+            editingId = '';
+            form.dataset.editing = '';
+        });
+    }
 
     renderWorkerReports(worker.id);
 }
 
-async function renderWorkerReports(workerId) {
+async function submitReportForm(form, editingId, status) {
+    const fileInput = form.querySelector('input[name="file"]');
+    const submitButton = form.querySelector('button[type="submit"]');
+    const title = form.title.value.trim();
+    const notes = form.notes.value.trim();
+    if (!title) {
+        showToast('Please enter a report title.');
+        return;
+    }
+    if (status !== 'draft') {
+        const fileRequired = form.title.getAttribute('data-required-file');
+        if (!editingId || fileRequired === 'false') {
+            const file = fileInput.files && fileInput.files[0];
+            if (!file) {
+                showToast('Please attach a PDF file.');
+                form.querySelector('input[name="file"]').focus();
+                return;
+            }
+        }
+    }
+    if (submitButton) {
+        submitButton.disabled = true;
+        submitButton.textContent = status === 'draft' ? 'Saving draft…' : 'Sending…';
+    }
+    try {
+        let payload = { title, notes, status };
+        const file = fileInput.files && fileInput.files[0];
+        if (file) {
+            const pdf = await readPdfFile(file);
+            payload = { ...payload, fileName: pdf.fileName, fileSize: pdf.fileSize, fileData: pdf.dataUrl };
+        }
+        const path = editingId ? `/api/worker/reports/${editingId}` : '/api/worker/reports';
+        await workerApi(path, { method: editingId ? 'PUT' : 'POST', body: JSON.stringify(payload) });
+        form.reset();
+        editingId = '';
+        form.dataset.editing = '';
+        showToast(status === 'draft' ? 'Draft saved. You can finish it later.' : 'Report sent to the admin.');
+        renderWorkerReports();
+        const heading = document.querySelector('#worker-reports-card .card-head h3');
+        if (heading) heading.textContent = 'Submit a report';
+    } catch (error) {
+        showToast(error.message);
+    } finally {
+        if (submitButton) {
+            submitButton.disabled = false;
+            submitButton.textContent = 'Send report';
+        }
+    }
+}
+
+async function renderWorkerReports() {
     const list = document.getElementById('worker-reports-list');
     if (!list) return;
     try {
@@ -487,20 +543,70 @@ async function renderWorkerReports(workerId) {
         list.innerHTML = reports.length ? `
             <div class="admin-table-wrap">
                 <table class="admin-table">
-                    <thead><tr><th>Title</th><th>File</th><th>Submitted</th><th>Status</th><th>Action</th></tr></thead>
+                    <thead><tr><th scope="col">Title</th><th>File</th><th>Submitted</th><th>Status</th><th>Action</th></tr></thead>
                     <tbody>
                         ${reports.map((report) => `
                             <tr>
                                 <td class="cell-strong">${escapeHtml(report.title)}${report.notes ? `<br/><span class="cell-muted">${escapeHtml(report.notes)}</span>` : ''}</td>
-                                <td class="cell-muted">${escapeHtml(report.fileName)} · ${(report.fileSize / 1024).toFixed(0)} KB</td>
-                                <td class="cell-muted">${formatDate(report.submittedAt)}</td>
-                                <td><span class="status-pill ${report.read ? 'contacted' : 'new'}">${report.read ? 'Read' : 'Submitted'}</span></td>
-                                <td><a class="btn-wn btn-wn-secondary" href="${report.fileData}" download="${escapeHtml(report.fileName)}">Download</a></td>
+                                <td class="cell-muted">${report.fileName ? escapeHtml(`${report.fileName} · ${(report.fileSize / 1024).toFixed(0)} KB`) : '—'}</td>
+                                <td class="cell-muted">${report.status === 'draft' ? 'Not submitted' : formatDate(report.submittedAt)}</td>
+                                <td><span class="status-pill ${report.status === 'draft' ? 'idle' : (report.read ? 'contacted' : 'new')}">${report.status === 'draft' ? 'Draft' : (report.read ? 'Read' : 'Submitted')}</span></td>
+                                <td>
+                                    <div style="display:flex; gap:0.4rem; align-items:center; flex-wrap:wrap">
+                                        ${report.status === 'draft'
+                                            ? `<button class="btn-wn btn-wn-secondary" data-draft-edit="${report.id}">Edit</button>
+                                               <button class="btn-wn btn-wn-primary" data-draft-submit="${report.id}">Submit</button>`
+                                            : `<a class="btn-wn btn-wn-secondary" href="/api/worker/reports/${report.id}/download" download="${escapeHtml(report.fileName)}">Download</a>`}
+                                    </div>
+                                </td>
                             </tr>`).join('')}
                     </tbody>
                 </table>
             </div>`
             : '<p class="cell-muted" style="padding:0.5rem 0">You have not submitted any reports yet.</p>';
+
+        const form = document.getElementById('report-form');
+        document.querySelectorAll('[data-draft-edit]').forEach((button) => {
+            button.addEventListener('click', () => {
+                const report = reports.find((item) => item.id === button.getAttribute('data-draft-edit'));
+                if (!report || !form) return;
+                form.title.value = report.title;
+                form.notes.value = report.notes || '';
+                form.title.setAttribute('data-required-file', report.fileKey ? 'false' : 'true');
+                form.dataset.editing = report.id;
+                const heading = document.querySelector('#worker-reports-card .card-head h3');
+                if (heading) heading.textContent = `Edit draft: ${report.title}`;
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+        });
+        document.querySelectorAll('[data-draft-submit]').forEach((button) => {
+            button.addEventListener('click', async () => {
+                const report = reports.find((item) => item.id === button.getAttribute('data-draft-submit'));
+                if (!report) return;
+                if (!report.fileKey) {
+                    showToast('Attach a PDF file before submitting.');
+                    if (form) {
+                        form.title.value = report.title;
+                        form.notes.value = report.notes || '';
+                        form.title.setAttribute('data-required-file', 'true');
+                        form.dataset.editing = report.id;
+                        const heading = document.querySelector('#worker-reports-card .card-head h3');
+                        if (heading) heading.textContent = `Edit draft: ${report.title}`;
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }
+                    return;
+                }
+                button.disabled = true;
+                try {
+                    await workerApi(`/api/worker/reports/${report.id}`, { method: 'PUT', body: JSON.stringify({ title: report.title, notes: report.notes, status: 'new' }) });
+                    showToast('Report submitted to the admin.');
+                    renderWorkerReports();
+                } catch (error) {
+                    showToast(error.message);
+                    button.disabled = false;
+                }
+            });
+        });
     } catch (error) {
         list.innerHTML = `<p class="cell-muted">${escapeHtml(error.message)}</p>`;
     }
@@ -532,7 +638,7 @@ async function loadWorkerDepartment(worker) {
             </div>
             <div class="admin-table-wrap" style="margin-top:1rem">
                 <table class="admin-table">
-                    <thead><tr><th>Requester</th><th>Preferred</th><th>Notes</th><th>Assigned to</th><th>Status</th><th>Action</th></tr></thead>
+                    <thead><tr><th scope="col">Requester</th><th>Preferred</th><th>Notes</th><th>Assigned to</th><th>Status</th><th>Action</th></tr></thead>
                     <tbody>
                         ${department.consultations.length ? department.consultations.map((item) => `
                             <tr>
@@ -577,7 +683,7 @@ async function loadWorkerDepartment(worker) {
 }
 
 function initWorker() {
-    if (!getWorkerToken()) {
+    if (!hasSession()) {
         window.location.href = '/admin/login.html';
         return;
     }
@@ -607,7 +713,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderToggleIcons();
     wireWorkerLogin();
     const isWorkerPage = window.location.pathname === '/worker.html';
-    if (isWorkerPage && getWorkerToken()) {
+    if (isWorkerPage && hasSession()) {
         initWorker();
     }
 });
