@@ -1,194 +1,290 @@
-# WorldNet Service Portal — UI/UX & HCI Audit
+# WorldNet Service Portal: Current UX, HCI, Accessibility, and Product Audit
 
-**Author:** UI/UX design audit (HCI/UX review discipline)
-**Scope:** Public site, admin console, worker portal, auth flows
-(`src/public/*`, `src/public/admin/*`, `src/public/js/*`, `src/public/css/*`, `src/server.js`).
-**Reviewed against:** master HCI/UX prompt (mental models, affordances, Norman cycle,
-gulfs of execution/evaluation, Shneiderman's rules, consistency, IA, error prevention/recovery,
-feedback, emotional design, accessibility, visual design, design system) and frontend-design guidance.
+**Review date:** 2026-09-12
+**Revision reviewed:** `ababbb2` (`feat: audit fixes and report - harden admin mutations, a11y modals/forms, tracker statuses, dead-file cleanup, team portal entry`)
+**Scope:** Public website, consultation and inquiry flows, admin console, worker portal, authentication, server-side interaction contracts, and repository setup documentation.
 
-Severity: 🔴 Critical · 🟠 High · 🟡 Medium · 🔵 Low · ⚪ Nit.
+This is a current-state audit. Findings below were checked against the implementation after the latest audit-fix commit; the older report contained several issues that are now resolved.
 
----
+## Executive Summary
 
-## Top issues (fix first)
+WorldNet has a credible functional base: the public site exposes services, portfolio evidence, contact and consultation flows; admins can manage content and assignments; workers can view assignments and submit reports. The visual direction is coherent and the system already includes several thoughtful touches, including reduced-motion handling, responsive shells, escaped rendered data, rate limits, and modal focus handling.
 
-1. 🔴 **Destructive actions without confirmation, inconsistently.** On the dashboard, delete
-   Worker / Service / Portfolio fire straight `DELETE` with zero confirm (`admin.js:1031-1057`),
-   while the Workers page uses `window.confirm` (`admin.js:1739`) and reports use confirm
-   (`admin.js:1911`). One dashboard click wipes a record permanently — no undo anywhere in the
-   system. Biggest gulf-of-evaluation + error-recovery violation.
-2. 🟠 **Unhandled promise rejections = silent UI failure.** Dashboard event handlers
-   (`admin.js:1024-1078`), department assignment-save (`admin.js:1803`), and report
-   toggle/delete (`admin.js:1897-1916`) `await authApi(...)` with no try/catch. On network error
-   or expired token nothing happens, no toast, button unresponsive.
-3. 🟠 **`records.html?type=<bad>` renders an infinite spinner.** `renderRecordsPage`
-   (`admin.js:1082`) leaves the "Loading records…" placeholder for any unknown `type`.
-4. 🟠 **Consultation tracker lies about 4 of 5 statuses.** `app.js:380` maps status to only
-   `pending` → "Pending" and everything else → "Viewed". Confirmed, completed, cancelled and
-   withdrawn all display "Viewed".
-5. 🟠 **Public forms are effectively anonymous to screen readers.** Bare
-   `<label>Name</label><input name="name" required />` with no `for`/`id` association
-   (`consultation.html:48` etc.) — no announced field names, no label-click focus.
-6. 🟠 **Dead artifacts shipped in the public root.** `worldnet-homepage (3).html` and
-   `worldnet-admin-dashboard (1).html` are abandoned Tailwind/Chart.js mockups (all `href="#"`).
-   `faq.html` and `worker-login.html` are invisible 0-second redirect stubs. Registration and
-   Google sign-in are fully dead code with no UI.
+The remaining risks concentrate in four areas:
 
----
+1. **Mutation safety and feedback:** one destructive dashboard action still bypasses confirmation and error handling, while record-page saves can fail silently.
+2. **Generated admin accessibility:** many dynamic fields still lack label associations, tables lack useful header semantics, and some icon controls rely on browser tooltips.
+3. **Operational security posture:** production can start with a known JWT secret and the public README publishes working default credentials.
+4. **Validation maturity:** dependencies are not installed in the checked-out workspace, so the regression suite cannot currently execute; there are no browser, visual, keyboard, screen-reader, or automated accessibility checks.
 
-## A. Accessibility (WCAG)
+## Findings, Ordered by Severity
 
-- 🔴 **Modals trap no focus.** `credential-overlay` / `openProfileModal` set `role="dialog"` +
-  `aria-modal` (`admin.js:222`, `worker.js:203`) but: no focus moved into the modal, no focus
-  trap, background not `aria-hidden`, no Escape-to-close, no `aria-labelledby`.
-- 🟠 **Hidden dropdown links are keyboard-focusable (desktop).** `.nav-dropdown-menu` is
-  `opacity:0; pointer-events:none` but NOT `display:none` (`styles.css:176-200`) → invisible
-  links are tab targets. (Mobile variant correctly uses `display:none`, `styles.css:1306`.)
-- 🟠 **Status colors are the only differentiator AND semantically abused.** Categories render
-  with the status class `new` (`admin.js:880,939,1106,1262`), so "Infrastructure" shows as an
-  amber "new" pill — status color attached to a non-status meaning.
-- 🟠 **No `role="status"` / `aria-live` on toasts** (`styles.css:1114`, `.wn-toast`) or
-  `.form-status` — transient feedback is silent to screen readers.
-- 🟡 **Emoji as icons without `aria-hidden`:** `👋`/`📅`/`＋` (`admin.js:592,596,666`), theme
-  glyphs `☾☀◐`. Mixed emoji + SVG iconography.
-- 🟡 **No skip-link** on public pages, login, or admin shells.
-- 🟡 **Login footnote contrast fails:** `rgba(154,165,184,0.55)` at `0.72rem`
-  (`admin.css:2949-2955`) ≈ 2.9:1; placeholder `rgba(170,183,208,0.55)` (`admin.css:2891`)
-  also weak; activity-feed time `--wn-slate-400` at `0.72rem` (`admin.js:983`).
-- 🟡 **`th` cells lack `scope="col"`**; tables lack captions / `aria-label`.
-- 🟡 **Initials avatars** read by SR as words ("AK") (`admin.js:182`).
-- 🔵 **No custom `:focus-visible`** for `.btn-wn` / `.icon-button` / `.row-menu-trigger`
-  (only `.stat-card`, `admin.css:573`).
-- 🔵 **Inline SVG icons** in `ICONS` generally lack `aria-hidden="true"`; icon buttons rely on
-  `title` only.
+### Critical
 
-**Positives:** `prefers-reduced-motion` handled in CSS (`styles.css:444`, `admin.css:3011`) and
-JS (parallax/reveal gating, `app.js:476`); scroll-snap disabled under reduce-motion;
-`aria-controls`/`aria-expanded` on hamburger; autofill styling handled (`admin.css:2895`).
+#### C1. Production authentication has unsafe fallback credentials/configuration
 
----
+**Evidence:** `src/server.js` falls back to `worldnet-dev-secret` when `JWT_SECRET` is absent. The server seeds administrator and worker accounts with known passwords, and `README.md` publishes the admin credentials.
 
-## B. Interaction, feedback, error recovery (Norman cycle / Shneiderman)
+**Impact:** A deployment that misses environment configuration can permit token forgery or unauthorized sign-in. This is a release-blocking trust and security issue, not merely a setup inconvenience.
 
-- 🔴 No user control over destructive choices + no undo (Top 1).
-- 🟠 Silent failures (Top 2).
-- 🟠 **Rate-limit feedback is opaque.** Login/auth limits are 12 / 15 min (`server.js:24-26`);
-  the 429 body is plain text, `res.json().catch(()=>({}))` swallows the real reason, user sees
-  generic "Request failed" with an enabled retry button.
-- 🟠 **Row-save pattern creates a gulf.** Status applies only after a per-row "Save"
-  (`admin.js:906,928`); no dirty-state cue, no saving feedback, navigation silently discards.
-- 🟡 **"New service" / "New portfolio item" CTAs deep-link to `/admin/dashboard.html`**
-  (`admin.js:1097,1252`) — land at top of dashboard, not the content-studio form.
-- 🟡 **"Mark all read" does N sequential PUTs** (`admin.js:569-581`); mid-loop failure leaves a
-  partial state.
-- 🟡 **Unread bell dot is stale until first open** — `loadNotifications` (which sets the dot) only
-  runs on bell click (`admin.js:524-527`); dashboard `stats-notifications` is separate, so two
-  unread counters disagree.
-- 🟡 **Concurrent message noise**: form error shows inline status AND toast (`app.js:337-338`).
-- 🔵 Good: validation summary lists exact missing fields (`app.js:337`)… but as raw snake_case
-  names ("service_type").
-- 🔵 Full-page reload per sidebar navigation; stats flash from `0` before populating
-  (`admin.js:855-869`).
-- ⚪ Admin sidebar collapsed-pref persists into mobile (`admin.js:493-503`).
+**Recommendation:** Fail startup in production when `JWT_SECRET` is absent or too short. Require an explicit first-admin bootstrap or secret injection. Remove working credentials from public documentation and document a local-only bootstrap procedure instead. Add a deployment test that refuses insecure configuration.
 
----
+#### C2. Worker deletion on the dashboard is destructive without confirmation or failure feedback
 
-## C. Information architecture & navigation
+**Evidence:** `src/public/js/admin.js` directly awaits `DELETE /api/admin/workers/:id` in the dashboard worker roster. The worker-management page has a safer confirmation path, but the same entity has inconsistent behavior in two places.
 
-- 🟠 **Admin/worker portal has zero public entry points** — no "Team sign in" link anywhere on
-  the public site; reachable only by guessing `/admin/login.html`; `worker-login.html` is an
-  orphan stub.
-- 🟡 **Sidebar "Overview" group contains all 8 items** (`admin.js:406-414`).
-- 🟡 **Two portals, one URL.** `/api/login` routes by role (`admin.js:2100`) but worker.js also
-  implements `/api/worker/login`; all post-login destinations for workers are `/admin/login.html`
-  (`worker.js:385,548,563`).
-- 🟡 **Deep-link integrity**: `/services/` with trailing slash silently 404s
-  (`app.js:239-241`).
-- 🔵 `faq.html` double redirection (meta refresh + JS).
-- 🔵 **Status label vocabulary inconsistent:** tracker "Pending/Viewed" vs admin
-  "new/contacted/resolved" vs worker "Submitted/Read"; `.status-pill.withdrawn` styled
-  (`admin.css:984`) but unselectable in any admin dropdown.
+**Impact:** A single accidental click can remove a worker and unassign consultations. A network failure produces an unhandled rejection and leaves the operator without a trustworthy result.
 
----
+**Recommendation:** Use the shared `withButtonFeedback` path with a clear confirmation, disabled/in-progress state, error toast, and a post-action summary. Prefer soft-delete or an undo window for workers because deletion changes assignment history.
 
-## D. Consistency & design system
+### High
 
-- 🟠 **Two button systems**: public `.btn` (pill + shine, `styles.css:213-268`) vs admin
-  `.btn-wn`; two card systems (`.card` vs `.admin-card/.panel`); two token namespaces
-  (`--navy/--blue/--cyan` vs `--wn-*`).
-- 🟠 **Thematically disjoint:** public site ignores `data-theme`; admin/worker/login honor a
-  shared `worldnet_theme`.
-- 🟠 **Inline `style=` is the de-facto design system.** ~15 near-identical inline copies in
-  `admin.js` (`:738-739,760-761,901-922,1144-1206,1790-1844`).
-- 🟡 **Avatar color logic inconsistent** — `avatarColor` palette (`admin.js:165`) vs hardcoded
-  gradients (`admin.js:996,1219,1782`).
-- 🟡 **Helper code duplicated 1:1** between admin.js and worker.js; already drifted
-  (`worker.js:142-150` drops palette logic).
-- 🔵 **Redundant inline styles against CSS** — logo `font-weight:800;font-size:1.1rem` vs
-  `.nav-logo span` (`styles.css:108-111`).
-- ⚪ Emoji icon set (👋 📅 ＋ ☾ ☀ ◐) colliding with lucide-style SVGs.
+#### H1. Record-page inquiry and consultation saves can fail silently
 
----
+**Evidence:** In `src/public/js/admin.js`, the record-page handlers for inquiry and consultation status changes directly await `authApi` without the shared error/disabled-button wrapper.
 
-## E. Forms & error prevention
+**Impact:** Expired sessions and network failures create the gulf of evaluation: the operator cannot tell whether the selected status was persisted. Repeated clicks may also create duplicate requests.
 
-- 🟠 No `for`/`id` label association (public forms, dashboard `<details>` forms, worker forms).
-- 🟠 **Double-submission possible on public forms** — `submitForm` swaps text but never sets
-  `disabled` (`app.js:341-357`). Worker login/report forms disable properly.
-- 🟡 **No client-side email/phone format or future-date validation** on live forms
-  (the *dead mockup* had them, `worldnet-homepage (3).html:905-915`); consultation date has no
-  `min`.
-- 🟡 **Field-level vs summary errors:** nothing marked invalid, nothing focused.
-- 🟡 **Withdraw request has no confirm** (`app.js:394-405`).
-- 🔵 **Worker assignment ignores department scoping** (`admin.js:1202-1204`).
+**Recommendation:** Wrap both mutations with `withButtonFeedback`, use `Saving...` text, restore the original state in `finally`, and keep the selected value visible if the request fails.
 
----
+#### H2. Generated admin forms still do not associate labels with controls
 
-## F. Content & copywriting
+**Evidence:** Dashboard, worker-management, and edit forms generated by `admin.js` contain bare `<label>` elements and inputs without matching stable `for`/`id` pairs.
 
-- 🔵 Tracker copy "pending or already viewed" (`consultation.html:65`) normalizes the two-state
-  lie (Top 4).
-- 🔵 Raw field names leak into user-facing strings (`app.js:337`).
-- ⚪ Dashboard welcome overpromises on an empty system; footer label mismatches
-  ("Network & cabling" vs full service names).
+**Impact:** Screen-reader users may not receive the field name reliably, and clicking a label does not move focus to the field. This is especially harmful in dense administrative forms.
 
----
+**Recommendation:** Give every generated control a stable id and every label a matching `for`. Add field-level error text with `aria-describedby` and `aria-invalid`.
 
-## G. Performance & perceived quality
+#### H3. Public form validation still exposes implementation field names and does not focus errors
 
-- 🟠 Unbounded table pages (only workers paginates, `admin.js:1524-1538`).
-- 🟡 No debounce on dashboard search keystrokes (`admin.js:2007`).
-- 🔵 7 API calls per dashboard render; all-or-nothing render (`admin.js:845-853`).
-- ⚪ Google Fonts + 3 families (only Inter actually used).
+**Evidence:** `app.js` reports missing names such as `service_type` in a summary string. Validation does not mark the relevant field invalid or focus the first failing control.
 
----
+**Impact:** The system is technically informative but not user-oriented. Users must translate internal names into visible fields and may not notice the message, particularly with assistive technology.
 
-## H. Dead code & cruft
+**Recommendation:** Map field names to plain labels such as “Service type”, set `aria-invalid="true"`, connect an error element with `aria-describedby`, and focus the first invalid field.
 
-- 🟠 `worldnet-homepage (3).html`, `worldnet-admin-dashboard (1).html` (public root).
-- 🟠 `faq.html`, `worker-login.html` redirect stubs.
-- 🟡 Dead registration & Google-sign-in code (`admin.js:2114-2242`, `server.js:933,1086`) —
-  `/api/register` is callable with no UI.
-- ⚪ `src/report.html` stray artifact; `JWT_SECRET` falls back to `'worldnet-dev-secret'`
-  (`server.js:16`).
+#### H4. Worker report files are stored and delivered as large data URLs
 
----
+**Evidence:** PDF uploads are base64-encoded into JSON and persisted in application state/database; admin and worker pages expose them directly as `data:` URLs.
 
-## Recommended quick wins (highest fix/effort ratio)
+**Impact:** Base64 adds storage overhead, large records increase load time and memory use, database backups become heavier, and browser download/view behavior is less robust. Access control and retention are harder to reason about than with a file/object-storage boundary.
 
-1. Wrap dashboard/report/assign mutations in try/catch; show error toasts; disable buttons in flight.
-2. Add confirm + disable to destructive/status actions on the dashboard; where cheap, use undo/soft delete.
-3. Give public forms real `for`/`id` labels and disable submit on submit.
-4. Fix the tracker's status mapping (map confirmed/completed/cancelled/withdrawn).
-5. Guard `records.html?type=` with a whitelist + error state.
-6. Delete the two mockup files; replace `faq.html`/`worker-login.html` redirects with server-side redirects.
-7. Add a small "Team sign in" link in the public footer/nav.
-8. Add focus trap/Escape/`aria-labelledby` to modals; add `role="status"` to toasts.
+**Recommendation:** Store validated files outside the primary record payload, retain metadata in the database, enforce server-side size/type limits independently of the client, and serve downloads through an authenticated endpoint with audit logging and retention rules.
 
----
+### Medium
 
-**Overall:** the system is functional, thoughtfully animated, respects reduced-motion, and has
-good bones (consistent shells, deterministic avatars, clean role routing, solid auth copy). But
-it ships on two parallel design systems with inline-style governance, asymmetric
-destructive-action safety, invisible failure modes, and publicly reachable dead artifacts.
+#### M1. Desktop navigation dropdown content remains focusable while visually hidden
+
+**Evidence:** `.nav-dropdown-menu` uses opacity and `pointer-events: none` when closed, but does not use `visibility`, `display`, or `inert`.
+
+**Impact:** Keyboard users can tab through links they cannot see. Focus can appear to disappear beneath the header, violating predictable navigation.
+
+**Recommendation:** Toggle `hidden`/`inert` or use a keyboard-aware visibility state. Keep `aria-expanded` synchronized with the actual focusable state.
+
+#### M2. Admin tables lack `scope` and accessible names
+
+**Evidence:** Generated admin tables use bare `<th>` cells and generally omit captions or `aria-label` values.
+
+**Impact:** Cell-to-header relationships are less reliable for non-visual navigation, especially in tables with repeated action controls.
+
+**Recommendation:** Add `scope="col"` to column headers and an accessible caption or `aria-label` describing each table. Give action controls row-specific accessible names.
+
+#### M3. Icon-only admin controls are inconsistently named
+
+**Evidence:** Sidebar, logout, profile, notification, row-menu, and report download controls are generated in different places. Some use `title` only, while decorative SVGs are not consistently marked `aria-hidden`.
+
+**Impact:** Browser tooltips are not a dependable accessible name. Users of assistive technology may hear an unlabeled button or decorative path data.
+
+**Recommendation:** Add explicit `aria-label` values to every icon-only button and `aria-hidden="true"` to decorative SVGs. Preserve visible text where the action is consequential.
+
+#### M4. Form-status feedback is not consistently exposed as a live region
+
+**Evidence:** Toasts now have `role="status"` and `aria-live`, but inline `.form-status` messages and the consultation tracker result do not consistently expose equivalent semantics or focus behavior.
+
+**Impact:** A successful submission, failed lookup, or withdrawal result may not be announced to a screen-reader user.
+
+**Recommendation:** Add `role="status"` for non-error updates and `role="alert"` for errors, keep the live region mounted, and move focus only when necessary so users do not lose context.
+
+#### M5. Dashboard filtering reloads the complete dashboard on every keystroke
+
+**Evidence:** Search input listeners call `loadDashboard()` directly. That function requests seven datasets and rerenders several panels.
+
+**Impact:** Typing creates unnecessary network traffic, loading flicker, and race conditions as responses return out of order. The cost will grow with data volume.
+
+**Recommendation:** Keep the loaded dataset in view state and filter locally; otherwise debounce input and cancel stale requests. Preserve the current scroll position and form state during filtering.
+
+#### M6. Category tags reuse workflow-status styling
+
+**Evidence:** Service and portfolio categories are rendered with `status-pill new`.
+
+**Impact:** “Infrastructure” and “Banking & Finance” visually read like “new” workflow states. This undermines the mental model of status colors and makes future status changes riskier.
+
+**Recommendation:** Introduce a separate category/tag component with neutral or categorical styling. Reserve status colors for lifecycle state.
+
+#### M7. Worker and admin portals use a shared login but different identity/storage contracts
+
+**Evidence:** Unified `/api/login` routes by staff id/email, while worker code also contains a separate `/api/worker/login` flow. The worker shell redirects to the admin login URL.
+
+**Impact:** Users can encounter different credential expectations and stale tokens in separate local-storage keys. The redirect is functional but does not explain whether the session expired, the account lacks access, or the user is at the wrong portal.
+
+**Recommendation:** Choose one canonical login flow, make role routing explicit in the UI, clear both role tokens on logout/expiry, and provide a contextual session-expired message.
+
+#### M8. Setup documentation conflicts with the actual Node.js project
+
+**Evidence:** README describes Node/npm setup but also lists a JDK prerequisite. Running `npm test` from the repository root fails because `package.json` is under `src`; the documented commands require changing directory first.
+
+**Impact:** New operators receive contradictory prerequisites and a common command fails at the documented repository root.
+
+**Recommendation:** Remove the JDK prerequisite, add a root-level test command or clearly label all commands as `cd src` commands, document required environment variables, and state whether `npm install` is expected before tests.
+
+### Low
+
+#### L1. Public and admin surfaces use separate visual token systems
+
+**Evidence:** Public CSS uses `--navy`, `--blue`, and `--cyan`; admin CSS uses a separate `--wn-*` namespace. Buttons, cards, radii, and theme behavior differ substantially.
+
+**Impact:** The product feels like two adjacent products. Familiarity does not transfer cleanly between the customer and team experiences.
+
+**Recommendation:** Keep role-appropriate density differences, but share semantic tokens for color meaning, focus, spacing, radius, status, and feedback.
+
+#### L2. Repeated inline styles make the design system difficult to maintain
+
+**Evidence:** Dynamic admin markup repeats inline borders, radii, spacing, typography, and gradients in many templates.
+
+**Impact:** Small visual changes require editing many string templates and can produce drift between screens.
+
+**Recommendation:** Extract repeated patterns into CSS classes and shared render helpers. Reserve inline styles for genuinely data-driven values such as chart widths.
+
+#### L3. Empty, loading, and error states are not consistently actionable
+
+**Evidence:** Several pages show plain “Unable to load...” or “No records yet” text without retry, recovery, or a next action.
+
+**Impact:** The interface communicates absence but not what the user should do next, weakening robustness and internal locus of control.
+
+**Recommendation:** Add contextual retry actions, explain whether the issue is temporary or permission-related, and preserve entered filters/forms.
+
+#### L4. Public content and service terminology are not fully normalized
+
+**Evidence:** Footer labels abbreviate service names differently from the service catalog, while the site uses “consultation”, “inquiry”, “request”, “team portal”, and “team console” across adjacent flows.
+
+**Impact:** Small vocabulary shifts increase cognitive load and make analytics and support conversations less precise.
+
+**Recommendation:** Define a product vocabulary and use one label for each object and action across navigation, forms, statuses, notifications, and documentation.
+
+## What Is Already Working
+
+- Public labels in the reviewed static forms use matching `for`/`id` attributes.
+- Public submission buttons disable during requests and restore in `finally`.
+- Consultation tracking distinguishes pending, confirmed, completed, cancelled, and withdrawn.
+- Destructive service, portfolio, report, and worker-page actions use confirmation and button feedback; the dashboard worker path is the remaining inconsistency.
+- Modal dialogs move focus into the dialog, support Escape, trap Tab, and restore focus when closed.
+- Rendered user-controlled strings are generally escaped before insertion into HTML.
+- Reduced-motion behavior is implemented in public and admin CSS/JS.
+- Dead mockups and redirect stubs were removed, and the public site exposes a Team portal entry point.
+- Server-side rate limits, password hashing, reset-token hashing, role checks, and worker assignment scoping provide a sound baseline.
+
+## User-Centered Design Model
+
+### Product and context
+
+**Product:** A Ghana-focused enterprise ICT service catalog and lead-management portal.
+
+**Primary persona: Ama Mensah, operations or IT manager.** She needs to understand whether WorldNet can solve a network, security, software, or support problem; compare credible evidence; submit a consultation request; and later verify its status. She is often interrupted, may be on a phone, and does not want to learn internal terminology.
+
+**Secondary persona: Kojo Asare, WorldNet administrator.** He triages inquiries, confirms consultations, assigns workers, maintains service and portfolio content, and needs fast, trustworthy feedback while handling multiple records.
+
+**Secondary persona: Efua Boateng, field worker or department head.** She checks assigned consultations, submits PDF reports, and may update statuses within a departmental workflow. She may work from a constrained device or inconsistent connection.
+
+**Contextual constraints:** mobile and desktop web use, intermittent connectivity, sensitive client contact details, role-based access, time pressure, and mixed technical familiarity.
+
+### Complexity diagnosis
+
+The **work domain is medium-high complexity**: services, inquiries, consultations, departments, workers, reports, statuses, assignments, and permissions interact. The **interaction complexity is medium**: the UI is mostly conventional, but dense tables and multiple portals create avoidable complexity.
+
+The appropriate design process is therefore contextual inquiry plus workflow modeling first, followed by targeted interaction simplification and repeated formative evaluation. Polishing the visual layer alone will not solve assignment, status, or accountability problems.
+
+### Observed versus extrapolated requirements
+
+**Observed/validated by the current implementation:** visitors need service discovery and contact/consultation submission; requesters need status tracking; admins need record management, assignment, and export; workers need assignment visibility and report submission.
+
+**Extrapolated and requiring validation:** requesters may need email/SMS status notifications; admins may need bulk actions and saved filters; workers may need offline draft/report recovery; customers may need a formal SLA or support-ticket path. These should be tested with representative users before being treated as committed requirements.
+
+## Work and Interaction Models
+
+### Flow model
+
+Requester exchanges service requirements and contact details with WorldNet. The administrator exchanges status, assignment, and scheduling information with the requester and worker. The worker exchanges progress/report artifacts with the administrator. The current UI represents these exchanges mostly as isolated pages; notifications and status history should make the relationships visible.
+
+### Hierarchical task inventory
+
+- Evaluate WorldNet
+  - Find a relevant service
+  - Inspect evidence and deliverables
+  - Decide whether to contact or book
+- Request help
+  - Enter contact and company details
+  - Choose service or consultation time
+  - Submit and receive confirmation
+  - Track or withdraw the request
+- Operate the portal
+  - Authenticate
+  - Review records
+  - Update status
+  - Assign work
+  - Confirm the result
+- Complete field work
+  - View assignment
+  - Prepare report
+  - Upload report
+  - Verify submission status
+
+### Essential use cases
+
+“I want WorldNet to understand my ICT need and respond” should not depend on whether the user knows the difference between an inquiry endpoint and an appointment endpoint. “I want to route a request to the right person and know it was routed” should not depend on remembering to reload a table or infer success from a disappearing button.
+
+### Norman cycle checks
+
+The public request flow supports goal and specification reasonably well, but error recovery needs field-level guidance. Admin mutations support the action itself, but the direct-save paths and dashboard worker deletion weaken observation, interpretation, and evaluation. Worker report upload provides good progress feedback but needs a more durable artifact and clearer retention/download behavior.
+
+## UX Goals and Measures
+
+These are proposed targets, not measured results:
+
+| Goal | Measure | Target |
+| --- | --- | --- |
+| A new requester can identify a relevant service | Time to first relevant service detail | 90% within 60 seconds, without backtracking from the home page |
+| A requester can submit a consultation | Completion rate and errors | 90% complete within 2 minutes; zero duplicate submissions in testing |
+| A requester understands the result | Recall of status and next step | 95% correctly identify confirmation and next action immediately after submission |
+| An admin can triage a request | Time and error rate | 90% assign/update a record within 45 seconds, with no silent failures |
+| A worker can submit a report | Completion and recovery | 90% submit a valid report within 2 minutes; failed upload preserves title and notes |
+| Keyboard and assistive technology access | Task completion | All critical tasks complete with keyboard; no unlabeled controls in automated accessibility scan |
+
+## Design-System and Accessibility Requirements
+
+The shared system should define semantic tokens for primary action, secondary action, focus, surface, text, muted text, success, warning, error, information, category, and disabled states. Each component should specify default, hover, focus-visible, active, disabled, error, and success behavior.
+
+Prioritize:
+
+- visible `:focus-visible` styling on every interactive component;
+- keyboard-operable menus, dialogs, filters, tables, and disclosures;
+- labels and descriptions that remain meaningful without placeholders;
+- text/status alternatives for every color-coded state;
+- 4.5:1 normal-text contrast and 3:1 large-text/UI-boundary contrast;
+- mobile table alternatives or responsive row layouts for dense admin data;
+- reduced motion without removing essential feedback;
+- announced loading, success, error, and empty states;
+- no destructive action without confirmation, undo, or a documented recovery path.
+
+## Evaluation Plan
+
+1. Run contextual interviews with one requester, one administrator, and one field worker; observe the work rather than collecting feature requests only.
+2. Conduct a five-task think-aloud test on desktop and mobile: find a service, submit a consultation, track it, assign it, and submit a report.
+3. Run a keyboard-only pass covering every public form, dropdown, modal, table action, and worker flow.
+4. Run an automated accessibility scan and manually verify announcements with a screen reader.
+5. Add browser tests for navigation, form errors, duplicate-submit prevention, expired sessions, destructive confirmations, and role boundaries.
+6. Add visual regression screenshots for public home, consultation, admin dashboard, records, worker portal, and mobile navigation.
+7. Repeat the measures in the UX goals table after fixes; do not mark the audit complete from code inspection alone.
+
+## Release Readiness
+
+The product is **not ready for production approval** until C1 and C2/H1 are resolved and the test environment is reproducible. The current checked-out workspace does not have dependencies installed, so `npm test` cannot import `express`; no passing test result should be claimed until `npm install` is run under `src` and the suite is rerun. The repository also needs browser/accessibility validation before the interaction findings can be considered closed.
