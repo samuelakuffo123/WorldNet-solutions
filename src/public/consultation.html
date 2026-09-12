@@ -32,6 +32,7 @@
                     </div>
                     <a href="/services.html" data-nav-link>Services</a>
                     <a href="/contact.html" data-nav-link>Contact</a>
+                    <a href="/admin/login.html" data-nav-link>Team portal</a>
                     <a href="/consultation.html" class="btn btn-primary">Book consultation</a>
                 </div>
             </nav>
@@ -45,28 +46,27 @@
                 <p class="muted">Let us know your preferred date and time and we will confirm shortly.</p>
                 <form id="consultation-form" class="form-grid" style="margin-top:1rem">
                     <div class="grid-2">
-                        <div><label>Name</label><input name="name" required /></div>
-                        <div><label>Email</label><input type="email" name="email" required /></div>
+                        <div><label for="cons-name">Name</label><input id="cons-name" name="name" required /></div>
+                        <div><label for="cons-email">Email</label><input id="cons-email" type="email" name="email" required /></div>
                     </div>
                     <div class="grid-2">
-                        <div><label>Phone</label><input name="phone" required /></div>
-                        <div><label>Company</label><input name="company" /></div>
+                        <div><label for="cons-phone">Phone</label><input id="cons-phone" name="phone" required /></div>
+                        <div><label for="cons-company">Company</label><input id="cons-company" name="company" /></div>
                     </div>
                     <div class="grid-2">
-                        <div><label>Preferred date</label><input type="date" name="preferred_date" required /></div>
-                        <div><label>Preferred time</label><input type="time" name="preferred_time" required /></div>
+                        <div><label for="cons-date">Preferred date</label><input id="cons-date" type="date" name="preferred_date" required /></div>
+                        <div><label for="cons-time">Preferred time</label><input id="cons-time" type="time" name="preferred_time" required /></div>
                     </div>
-                    <div><label>Notes</label><textarea name="notes"></textarea></div>
+                    <div><label for="cons-notes">Notes</label><textarea id="cons-notes" name="notes"></textarea></div>
                     <button class="btn btn-primary" type="submit">Request consultation</button>
                 </form>
             </div>
             <div class="card" style="padding:1.5rem">
                 <h3>Track your request</h3>
-                <p class="muted">Use the email and phone number from your request to see whether it is still pending or
-                    already viewed.</p>
+                <p class="muted">Use the email and phone number from your request to see the current status of your request.</p>
                 <form id="consultation-tracker-form" class="form-grid" style="margin-top:1rem">
-                    <div><label>Email</label><input type="email" name="email" required /></div>
-                    <div><label>Phone</label><input name="phone" required /></div>
+                    <div><label for="track-email">Email</label><input id="track-email" type="email" name="email" required /></div>
+                    <div><label for="track-phone">Phone</label><input id="track-phone" name="phone" required /></div>
                     <button class="btn btn-secondary" type="submit">Check status</button>
                 </form>
                 <div id="consultation-tracker-result" class="card"

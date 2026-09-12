@@ -32,6 +32,7 @@
                     </div>
                     <a href="/services.html" data-nav-link>Services</a>
                     <a href="/contact.html" data-nav-link class="active">Contact</a>
+                    <a href="/admin/login.html" data-nav-link>Team portal</a>
                     <a href="/consultation.html" class="btn btn-primary">Book consultation</a>
                 </div>
             </nav>
@@ -77,12 +78,12 @@
                         day.</p>
                     <form id="inquiry-form" class="form-grid" style="margin-top:1rem">
                         <div class="grid-2">
-                            <div><label>Name</label><input name="name" required /></div>
-                            <div><label>Email</label><input type="email" name="email" required /></div>
+                            <div><label for="inq-name">Name</label><input id="inq-name" name="name" required /></div>
+                            <div><label for="inq-email">Email</label><input id="inq-email" type="email" name="email" required /></div>
                         </div>
                         <div class="grid-2">
-                            <div><label>Phone</label><input name="phone" required /></div>
-                            <div><label>Service</label><select name="service_type">
+                            <div><label for="inq-phone">Phone</label><input id="inq-phone" name="phone" required /></div>
+                            <div><label for="inq-service">Service</label><select id="inq-service" name="service_type">
                                     <option>Network Infrastructure Design &amp; Cabling</option>
                                     <option>Fiber Optic Installation</option>
                                     <option>Cybersecurity &amp; Systems Security</option>
@@ -93,8 +94,8 @@
                                     <option>VPN, Video Conferencing &amp; Bandwidth</option>
                                 </select></div>
                         </div>
-                        <div><label>Company</label><input name="company" /></div>
-                        <div><label>Message</label><textarea name="message" required></textarea></div>
+                        <div><label for="inq-company">Company</label><input id="inq-company" name="company" /></div>
+                        <div><label for="inq-message">Message</label><textarea id="inq-message" name="message" required></textarea></div>
                         <button class="btn btn-primary" type="submit">Send enquiry</button>
                     </form>
                 </div>

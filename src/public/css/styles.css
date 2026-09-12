@@ -974,6 +974,11 @@ details p {
     color: #15803d;
 }
 
+.cancelled-badge {
+    background: rgba(244, 63, 94, 0.12);
+    color: #be123c;
+}
+
 .feature-card {
     padding: 1.4rem;
 }

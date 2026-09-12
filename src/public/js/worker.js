@@ -41,10 +41,40 @@ function escapeHtml(value) {
 function showToast(message) {
     const toast = document.getElementById('toast');
     if (!toast) return;
+    if (!toast.hasAttribute('role')) toast.setAttribute('role', 'status');
+    toast.setAttribute('aria-live', 'polite');
     toast.textContent = message;
     toast.classList.add('show');
     clearTimeout(showToast._timer);
     showToast._timer = setTimeout(() => toast.classList.remove('show'), 2800);
+}
+
+function wireDialogFocus(overlay, previousFocus) {
+    const close = () => {
+        overlay.remove();
+        if (previousFocus && typeof previousFocus.focus === 'function') previousFocus.focus();
+    };
+    overlay.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            close();
+        } else if (event.key === 'Tab') {
+            const focusables = overlay.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+            if (!focusables.length) return;
+            const first = focusables[0];
+            const last = focusables[focusables.length - 1];
+            if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first.focus();
+            }
+        }
+    });
+    const targets = overlay.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+    if (targets.length) targets[0].focus();
+    return close;
 }
 
 function getInitials(name) {
@@ -202,10 +232,11 @@ function openProfileModal() {
     overlay.id = 'profile-overlay';
     overlay.setAttribute('role', 'dialog');
     overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-labelledby', 'profile-modal-title');
     overlay.innerHTML = `
         <div class="credential-modal profile-modal">
             <button type="button" class="credential-close" id="profile-close" aria-label="Close">&times;</button>
-            <h3>My profile</h3>
+            <h3 id="profile-modal-title">My profile</h3>
             <p class="profile-sub">Update your display name and profile photo.</p>
             <div class="profile-preview" id="profile-preview">${renderAvatar(profile, 88)}</div>
             <form class="profile-form" id="profile-form">
@@ -218,12 +249,14 @@ function openProfileModal() {
                 <button type="submit" class="btn-wn btn-wn-primary" id="profile-save">Save changes</button>
             </form>
         </div>`;
+    const previousFocus = document.activeElement;
     document.body.appendChild(overlay);
 
     let pendingPhoto = '';
-    overlay.querySelector('#profile-close').addEventListener('click', () => overlay.remove());
+    const closeProfile = wireDialogFocus(overlay, previousFocus);
+    overlay.querySelector('#profile-close').addEventListener('click', closeProfile);
     overlay.addEventListener('click', (event) => {
-        if (event.target === overlay) overlay.remove();
+        if (event.target === overlay) closeProfile();
     });
     const photoInput = overlay.querySelector('#profile-photo-input');
     const preview = overlay.querySelector('#profile-preview');
@@ -403,10 +436,10 @@ function loadWorkerReports(worker) {
             </div>
             <form class="admin-form" id="report-form">
                 <div class="form-row">
-                    <div><label>Report title</label><input name="title" placeholder="e.g. Site survey - Ecobank Accra" required /></div>
-                    <div><label>PDF file</label><input type="file" name="file" accept="application/pdf,.pdf" required /></div>
+                    <div><label for="report-title">Report title</label><input id="report-title" name="title" placeholder="e.g. Site survey - Ecobank Accra" required /></div>
+                    <div><label for="report-file">PDF file</label><input id="report-file" type="file" name="file" accept="application/pdf,.pdf" required /></div>
                 </div>
-                <div><label>Notes</label><textarea name="notes" rows="3" placeholder="Optional summary for the admin"></textarea></div>
+                <div><label for="report-notes">Notes</label><textarea id="report-notes" name="notes" rows="3" placeholder="Optional summary for the admin"></textarea></div>
                 <button type="submit" class="btn-wn btn-wn-primary">Send report</button>
             </form>
             <div id="worker-reports-list" style="margin-top:0.9rem"></div>

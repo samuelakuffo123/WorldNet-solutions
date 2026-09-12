@@ -129,6 +129,8 @@ function showToast(message) {
         toast.className = 'toast';
         document.body.appendChild(toast);
     }
+    if (!toast.hasAttribute('role')) toast.setAttribute('role', 'status');
+    toast.setAttribute('aria-live', 'polite');
     toast.textContent = message;
     toast.classList.add('show');
     clearTimeout(showToast._timer);
@@ -340,7 +342,10 @@ async function submitForm(formId, endpoint) {
         }
         const submitButton = form.querySelector('button[type="submit"]');
         const originalText = submitButton ? submitButton.textContent : '';
-        if (submitButton) submitButton.textContent = 'Submitting…';
+        if (submitButton) {
+            submitButton.disabled = true;
+            submitButton.textContent = 'Submitting…';
+        }
         try {
             const formData = Object.fromEntries(new FormData(form).entries());
             await api(endpoint, { method: 'POST', body: JSON.stringify(formData) });
@@ -354,7 +359,10 @@ async function submitForm(formId, endpoint) {
             setFormStatus(form, error.message || 'Submission failed. Please try again.', 'error');
             showToast(error.message);
         } finally {
-            if (submitButton) submitButton.textContent = originalText;
+            if (submitButton) {
+                submitButton.disabled = false;
+                submitButton.textContent = originalText;
+            }
         }
     });
 }
@@ -377,8 +385,10 @@ async function trackConsultationRequest() {
         result.innerHTML = '<p class="muted" style="margin:0">Checking your request…</p>';
         try {
             const data = await api(`/api/consultations/track?email=${encodeURIComponent(email)}&phone=${encodeURIComponent(phone)}`);
-            const status = data.consultation.status === 'pending' ? 'Pending' : 'Viewed';
-            const badgeClass = data.consultation.status === 'pending' ? 'pending-badge' : 'viewed-badge';
+            const rawStatus = data.consultation.status || 'pending';
+            const statusLabels = { pending: 'Pending', confirmed: 'Confirmed', completed: 'Completed', cancelled: 'Cancelled', withdrawn: 'Withdrawn' };
+            const status = statusLabels[rawStatus] || 'Pending';
+            const badgeClass = rawStatus === 'pending' ? 'pending-badge' : (rawStatus === 'confirmed' || rawStatus === 'completed') ? 'viewed-badge' : 'cancelled-badge';
             const createdAt = data.consultation.createdAt ? new Date(data.consultation.createdAt).toLocaleString() : 'Recently submitted';
             result.innerHTML = `
               <div style="display:flex; flex-direction:column; gap:0.5rem">
@@ -408,6 +418,11 @@ async function trackConsultationRequest() {
             result.innerHTML = `<p class="muted" style="margin:0">${escapeHtml(error.message)}</p>`;
         }
     });
+}
+
+function setMinConsultationDate() {
+    const dateInput = document.querySelector('#consultation-form input[name="preferred_date"]');
+    if (dateInput) dateInput.min = new Date().toISOString().split('T')[0];
 }
 
 function animateCounters() {
@@ -514,5 +529,6 @@ if (document.readyState === 'loading') {
         submitForm('inquiry-form', '/api/inquiries');
         submitForm('consultation-form', '/api/consultations');
         trackConsultationRequest();
+        setMinConsultationDate();
     });
 }

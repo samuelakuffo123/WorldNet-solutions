@@ -28,10 +28,53 @@ function escapeHtml(value) {
 function showToast(message) {
     const toast = document.getElementById('toast');
     if (!toast) return;
+    if (!toast.hasAttribute('role')) toast.setAttribute('role', 'status');
+    toast.setAttribute('aria-live', 'polite');
     toast.textContent = message;
     toast.classList.add('show');
     clearTimeout(showToast._timer);
     showToast._timer = setTimeout(() => toast.classList.remove('show'), 2800);
+}
+
+function withButtonFeedback(button, task, { confirmMessage, inProgressText } = {}) {
+    if (confirmMessage && !window.confirm(confirmMessage)) return;
+    const original = button.textContent;
+    button.disabled = true;
+    if (inProgressText) button.textContent = inProgressText;
+    Promise.resolve(task())
+        .catch((error) => showToast((error && error.message) || 'Request failed'))
+        .finally(() => {
+            button.disabled = false;
+            button.textContent = original;
+        });
+}
+
+function wireDialogFocus(overlay, previousFocus) {
+    const close = () => {
+        overlay.remove();
+        if (previousFocus && typeof previousFocus.focus === 'function') previousFocus.focus();
+    };
+    overlay.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            close();
+        } else if (event.key === 'Tab') {
+            const focusables = overlay.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+            if (!focusables.length) return;
+            const first = focusables[0];
+            const last = focusables[focusables.length - 1];
+            if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first.focus();
+            }
+        }
+    });
+    const targets = overlay.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+    if (targets.length) targets[0].focus();
+    return close;
 }
 
 function formatRelativeTime(dateString) {
@@ -219,12 +262,13 @@ function openProfileModal() {
     const overlay = document.createElement('div');
     overlay.className = 'credential-overlay';
     overlay.id = 'profile-overlay';
-    overlay.setAttribute('role', 'dialog');
-    overlay.setAttribute('aria-modal', 'true');
-    overlay.innerHTML = `
-        <div class="credential-modal profile-modal">
-            <button type="button" class="credential-close" id="profile-close" aria-label="Close">&times;</button>
-            <h3>My profile</h3>
+overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.setAttribute('aria-labelledby', 'profile-modal-title');
+        overlay.innerHTML = `
+            <div class="profile-modal">
+                <button type="button" class="profile-close" id="profile-close" aria-label="Close">&times;</button>
+                <h3 id="profile-modal-title">My profile</h3>
             <p class="profile-sub">Update your display name and profile photo.</p>
             <div class="profile-preview" id="profile-preview">${renderAvatar(profile, 88)}</div>
             <form class="profile-form" id="profile-form">
@@ -237,12 +281,13 @@ function openProfileModal() {
                 <button type="submit" class="btn-wn btn-wn-primary" id="profile-save">Save changes</button>
             </form>
         </div>`;
+    const previousFocus = document.activeElement;
     document.body.appendChild(overlay);
-
     let pendingPhoto = '';
-    overlay.querySelector('#profile-close').addEventListener('click', () => overlay.remove());
+    const closeProfile = wireDialogFocus(overlay, previousFocus);
+    overlay.querySelector('#profile-close').addEventListener('click', closeProfile);
     overlay.addEventListener('click', (event) => {
-        if (event.target === overlay) overlay.remove();
+        if (event.target === overlay) closeProfile();
     });
     const photoInput = overlay.querySelector('#profile-photo-input');
     const preview = overlay.querySelector('#profile-preview');
@@ -1042,37 +1087,45 @@ function wireDashboardEvents(services, workers) {
         });
     });
     document.querySelectorAll('[data-delete-service]').forEach((button) => {
-        button.addEventListener('click', async () => {
-            await authApi(`/api/services/${button.getAttribute('data-delete-service')}`, { method: 'DELETE' });
-            showToast('Service deleted');
-            loadDashboard();
+        button.addEventListener('click', () => {
+            withButtonFeedback(button, async () => {
+                await authApi(`/api/services/${button.getAttribute('data-delete-service')}`, { method: 'DELETE' });
+                showToast('Service deleted');
+                loadDashboard();
+            }, { confirmMessage: 'Delete this service? This cannot be undone.' });
         });
     });
     document.querySelectorAll('[data-delete-portfolio]').forEach((button) => {
-        button.addEventListener('click', async () => {
-            await authApi(`/api/portfolio/${button.getAttribute('data-delete-portfolio')}`, { method: 'DELETE' });
-            showToast('Portfolio item deleted');
-            loadDashboard();
+        button.addEventListener('click', () => {
+            withButtonFeedback(button, async () => {
+                await authApi(`/api/portfolio/${button.getAttribute('data-delete-portfolio')}`, { method: 'DELETE' });
+                showToast('Portfolio item deleted');
+                loadDashboard();
+            }, { confirmMessage: 'Delete this portfolio item? This cannot be undone.' });
         });
     });
     document.querySelectorAll('[data-update-inquiry]').forEach((button) => {
-        button.addEventListener('click', async () => {
+        button.addEventListener('click', () => {
             const inquiryId = button.getAttribute('data-update-inquiry');
             const select = document.querySelector(`[data-status-select="inquiry-${inquiryId}"]`);
             if (!select) return;
-            await authApi(`/api/inquiries/${inquiryId}`, { method: 'PUT', body: JSON.stringify({ status: select.value }) });
-            showToast('Inquiry status updated');
-            loadDashboard();
+            withButtonFeedback(button, async () => {
+                await authApi(`/api/inquiries/${inquiryId}`, { method: 'PUT', body: JSON.stringify({ status: select.value }) });
+                showToast('Inquiry status updated');
+                loadDashboard();
+            }, { inProgressText: 'Updating…' });
         });
     });
     document.querySelectorAll('[data-update-consultation]').forEach((button) => {
-        button.addEventListener('click', async () => {
+        button.addEventListener('click', () => {
             const consultationId = button.getAttribute('data-update-consultation');
             const select = document.querySelector(`[data-status-select="consultation-${consultationId}"]`);
             if (!select) return;
-            await authApi(`/api/consultations/${consultationId}`, { method: 'PUT', body: JSON.stringify({ status: select.value }) });
-            showToast('Consultation updated');
-            loadDashboard();
+            withButtonFeedback(button, async () => {
+                await authApi(`/api/consultations/${consultationId}`, { method: 'PUT', body: JSON.stringify({ status: select.value }) });
+                showToast('Consultation updated');
+                loadDashboard();
+            }, { inProgressText: 'Updating…' });
         });
     });
 }
@@ -1083,6 +1136,12 @@ async function renderRecordsPage(type) {
     const content = document.getElementById('admin-content');
     if (!content) return;
     content.innerHTML = '<div class="admin-card"><p class="cell-muted">Loading records…</p></div>';
+
+    const VALID_RECORD_TYPES = ['services', 'inquiries', 'consultations', 'portfolio'];
+    if (!VALID_RECORD_TYPES.includes(type)) {
+        content.innerHTML = `<div class="admin-card"><h3>Records</h3><p class="cell-muted">Unknown record type: ${escapeHtml(type)}</p></div>`;
+        return;
+    }
 
     const labels = { services: 'Services', inquiries: 'Inquiries', consultations: 'Consultations', portfolio: 'Portfolio' };
     const subtitle = `Full ${type} records with status updates and detailed information.`;
@@ -1114,10 +1173,12 @@ async function renderRecordsPage(type) {
                     </div>
                 </div>`;
             document.querySelectorAll('[data-delete-service]').forEach((button) => {
-                button.addEventListener('click', async () => {
-                    await authApi(`/api/services/${button.getAttribute('data-delete-service')}`, { method: 'DELETE' });
-                    showToast('Service deleted');
-                    renderRecordsPage(type);
+                button.addEventListener('click', () => {
+                    withButtonFeedback(button, async () => {
+                        await authApi(`/api/services/${button.getAttribute('data-delete-service')}`, { method: 'DELETE' });
+                        showToast('Service deleted');
+                        renderRecordsPage(type);
+                    }, { confirmMessage: 'Delete this service? This cannot be undone.' });
                 });
             });
         } else if (type === 'inquiries') {
@@ -1268,10 +1329,12 @@ async function renderRecordsPage(type) {
                     </div>
                 </div>`;
             document.querySelectorAll('[data-delete-portfolio]').forEach((button) => {
-                button.addEventListener('click', async () => {
-                    await authApi(`/api/portfolio/${button.getAttribute('data-delete-portfolio')}`, { method: 'DELETE' });
-                    showToast('Portfolio item deleted');
-                    renderRecordsPage(type);
+                button.addEventListener('click', () => {
+                    withButtonFeedback(button, async () => {
+                        await authApi(`/api/portfolio/${button.getAttribute('data-delete-portfolio')}`, { method: 'DELETE' });
+                        showToast('Portfolio item deleted');
+                        renderRecordsPage(type);
+                    }, { confirmMessage: 'Delete this portfolio item? This cannot be undone.' });
                 });
             });
         }
@@ -1285,17 +1348,22 @@ async function renderRecordsPage(type) {
 function showCredentialsModal(title, staffId, password) {
     const overlay = document.createElement('div');
     overlay.className = 'credential-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-labelledby', 'credential-modal-title');
     overlay.innerHTML = `
         <div class="credential-modal">
             <button type="button" class="credential-close" aria-label="Close">&times;</button>
-            <h3>${escapeHtml(title)}</h3>
+            <h3 id="credential-modal-title">${escapeHtml(title)}</h3>
             <p class="cell-muted">Share these sign-in details with the user — Staff ID + password, like a Sakai login.</p>
             <div class="credential-row"><span>Staff ID</span><strong>${escapeHtml(staffId || '')}</strong></div>
             <div class="credential-row"><span>Password</span><strong>${escapeHtml(password || '')}</strong></div>
             <p class="cell-muted" style="font-size:0.78rem">The password is temporary — it is cleared after their first sign-in. Reset it any time from the list.</p>
             <button class="btn-wn btn-wn-primary" type="button" id="credential-copy">Copy credentials</button>
         </div>`;
-    const close = () => overlay.remove();
+    const previousFocus = document.activeElement;
+    document.body.appendChild(overlay);
+    const close = wireDialogFocus(overlay, previousFocus);
     overlay.addEventListener('click', (event) => {
         if (event.target === overlay) close();
     });
@@ -1312,7 +1380,6 @@ function showCredentialsModal(title, staffId, password) {
             }
         });
     }
-    document.body.appendChild(overlay);
 }
 
 function closeRowMenus() {
@@ -1584,10 +1651,12 @@ async function renderWorkersPage() {
         document.getElementById('worker-form').addEventListener('submit', async (event) => {
             event.preventDefault();
             const form = event.currentTarget;
+            const submitBtn = event.submitter || form.querySelector('button[type="submit"]');
             const payload = Object.fromEntries(new FormData(form).entries());
             const isAdmin = payload.userType === 'admin';
             delete payload.userType;
             if (isAdmin) delete payload.department;
+            submitBtn.disabled = true;
             try {
                 if (isAdmin) {
                     const data = await authApi('/api/admin/users', {
@@ -1607,6 +1676,8 @@ async function renderWorkersPage() {
                 renderWorkersPage();
             } catch (error) {
                 showToast(error.message);
+            } finally {
+                submitBtn.disabled = false;
             }
         });
 
@@ -1695,10 +1766,12 @@ async function renderWorkersPage() {
         document.getElementById('worker-edit-form').addEventListener('submit', async (event) => {
             event.preventDefault();
             const form = event.currentTarget;
+            const submitBtn = event.submitter || form.querySelector('button[type="submit"]');
             const payload = Object.fromEntries(new FormData(form).entries());
             delete payload.password;
             payload.isDepartmentHead = form.isDepartmentHead.checked;
             if (form.password.value.trim()) payload.password = form.password.value.trim();
+            submitBtn.disabled = true;
             try {
                 await authApi(`/api/admin/workers/${form.dataset.workerId}`, {
                     method: 'PUT',
@@ -1708,6 +1781,8 @@ async function renderWorkersPage() {
                 renderWorkersPage();
             } catch (error) {
                 showToast(error.message);
+            } finally {
+                submitBtn.disabled = false;
             }
         });
 
@@ -1735,11 +1810,12 @@ async function renderWorkersPage() {
         });
 
         document.querySelectorAll('[data-delete-worker]').forEach((button) => {
-            button.addEventListener('click', async () => {
-                if (!window.confirm('Delete this worker? Their assignments will be unassigned.')) return;
-                await authApi(`/api/admin/workers/${button.getAttribute('data-delete-worker')}`, { method: 'DELETE' });
-                showToast('Worker deleted');
-                renderWorkersPage();
+            button.addEventListener('click', () => {
+                withButtonFeedback(button, async () => {
+                    await authApi(`/api/admin/workers/${button.getAttribute('data-delete-worker')}`, { method: 'DELETE' });
+                    showToast('Worker deleted');
+                    renderWorkersPage();
+                }, { confirmMessage: 'Delete this worker? Their assignments will be unassigned.' });
             });
         });
     } catch (error) {
@@ -1801,21 +1877,23 @@ async function renderDepartmentsPage() {
             </div>`;
 
         document.querySelectorAll('[data-assign-save]').forEach((button) => {
-            button.addEventListener('click', async () => {
-                const department = button.getAttribute('data-assign-save');
+            button.addEventListener('click', () => {
                 const card = button.closest('.dept-card');
                 const consultationSelect = card.querySelector('[data-assign-select="consultation"]');
                 const workerSelect = card.querySelector('[data-assign-worker="consultation"]');
                 if (!consultationSelect || !consultationSelect.value) return;
-                await authApi(`/api/consultations/${consultationSelect.value}`, {
-                    method: 'PUT',
-                    body: JSON.stringify({
-                        assignedDepartment: department,
-                        assignedWorker: workerSelect.value
-                    })
-                });
-                showToast('Consultation assigned');
-                renderDepartmentsPage();
+                const department = button.getAttribute('data-assign-save');
+                withButtonFeedback(button, async () => {
+                    await authApi(`/api/consultations/${consultationSelect.value}`, {
+                        method: 'PUT',
+                        body: JSON.stringify({
+                            assignedDepartment: department,
+                            assignedWorker: workerSelect.value
+                        })
+                    });
+                    showToast('Consultation assigned');
+                    renderDepartmentsPage();
+                }, { inProgressText: 'Assigning…' });
             });
         });
     } catch (error) {
@@ -1895,23 +1973,27 @@ function renderReportsTable(reports) {
         : '<tr><td colspan="6" class="cell-muted">No reports match your filters.</td></tr>';
 
     document.querySelectorAll('[data-report-toggle]').forEach((button) => {
-        button.addEventListener('click', async () => {
+        button.addEventListener('click', () => {
             const report = reports.find((item) => item.id === button.getAttribute('data-report-toggle'));
             if (!report) return;
-            await authApi(`/api/admin/reports/${report.id}`, {
-                method: 'PUT',
-                body: JSON.stringify({ read: !report.read })
-            });
-            renderReportsPage();
+            withButtonFeedback(button, async () => {
+                await authApi(`/api/admin/reports/${report.id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ read: !report.read })
+                });
+                renderReportsPage();
+            }, { inProgressText: 'Saving…' });
         });
     });
     document.querySelectorAll('[data-report-delete]').forEach((button) => {
-        button.addEventListener('click', async () => {
+        button.addEventListener('click', () => {
             const report = reports.find((item) => item.id === button.getAttribute('data-report-delete'));
-            if (!report || !confirm(`Delete the report "${report.title}"?`)) return;
-            await authApi(`/api/admin/reports/${report.id}`, { method: 'DELETE' });
-            showToast('Report deleted');
-            renderReportsPage();
+            if (!report) return;
+            withButtonFeedback(button, async () => {
+                await authApi(`/api/admin/reports/${report.id}`, { method: 'DELETE' });
+                showToast('Report deleted');
+                renderReportsPage();
+            }, { confirmMessage: `Delete the report "${report.title}"?` });
         });
     });
 }
@@ -1949,8 +2031,10 @@ function wireDashboardForms() {
     if (serviceForm) {
         serviceForm.addEventListener('submit', async (event) => {
             event.preventDefault();
+            const submitBtn = event.submitter || serviceForm.querySelector('button[type="submit"]');
             const payload = Object.fromEntries(new FormData(event.target).entries());
             const serviceId = payload.id;
+            submitBtn.disabled = true;
             try {
                 if (serviceId) {
                     await authApi(`/api/services/${serviceId}`, { method: 'PUT', body: JSON.stringify(payload) });
@@ -1963,6 +2047,8 @@ function wireDashboardForms() {
                 loadDashboard();
             } catch (error) {
                 showToast(error.message);
+            } finally {
+                submitBtn.disabled = false;
             }
         });
         const cancel = document.getElementById('cancel-service-edit');
@@ -1973,7 +2059,9 @@ function wireDashboardForms() {
     if (workerForm) {
         workerForm.addEventListener('submit', async (event) => {
             event.preventDefault();
+            const submitBtn = event.submitter || workerForm.querySelector('button[type="submit"]');
             const payload = Object.fromEntries(new FormData(event.target).entries());
+            submitBtn.disabled = true;
             try {
                 const data = await authApi('/api/admin/workers', { method: 'POST', body: JSON.stringify(payload) });
                 event.target.reset();
@@ -1982,6 +2070,8 @@ function wireDashboardForms() {
                 loadDashboard();
             } catch (error) {
                 showToast(error.message);
+            } finally {
+                submitBtn.disabled = false;
             }
         });
     }
@@ -1990,7 +2080,9 @@ function wireDashboardForms() {
     if (portfolioForm) {
         portfolioForm.addEventListener('submit', async (event) => {
             event.preventDefault();
+            const submitBtn = event.submitter || portfolioForm.querySelector('button[type="submit"]');
             const payload = Object.fromEntries(new FormData(event.target).entries());
+            submitBtn.disabled = true;
             try {
                 await authApi('/api/portfolio', { method: 'POST', body: JSON.stringify(payload) });
                 event.target.reset();
@@ -1998,6 +2090,8 @@ function wireDashboardForms() {
                 loadDashboard();
             } catch (error) {
                 showToast(error.message);
+            } finally {
+                submitBtn.disabled = false;
             }
         });
     }

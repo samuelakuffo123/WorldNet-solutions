@@ -1137,6 +1137,9 @@ app.get('/portfolio-details/:id', (_req, res) => {
     res.sendFile(path.join(PUBLIC_DIR, 'portfolio-details.html'));
 });
 
+app.get('/faq.html', (_req, res) => res.redirect(301, '/about.html'));
+app.get('/worker-login.html', (_req, res) => res.redirect(301, '/admin/login.html'));
+
 app.use(express.static(PUBLIC_DIR));
 
 app.get('*', (_req, res) => {
