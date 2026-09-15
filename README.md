@@ -73,6 +73,10 @@ The app is deployment-ready for **Render** (blueprint in `render.yaml`) and
 [`deployment/README.md`](deployment/README.md) to deploy to either platform,
 and configure the required environment variables before going live.
 
+## Links
+
+- Final demo walkthrough — WorldNet Portal (v1.0-demo): <https://youtu.be/qRVrJBK1Dzg>
+
 ## Sprint 3 handover notes
 
 - The admin console is available at `/admin/login.html` and also acts as the team (worker) login. Sign-in is session-cookie based; sessions expire after `TOKEN_TTL_HOURS` (default 8h).
