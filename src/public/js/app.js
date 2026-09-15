@@ -574,7 +574,9 @@ async function refreshClientSession() {
 
 function renderClientPill() {
     const nav = document.querySelector('.nav-links');
-    if (!nav || document.getElementById('wn-client-pill')) return;
+    if (!nav) return;
+    const existing = document.getElementById('wn-client-pill');
+    if (existing) existing.remove();
     const pill = document.createElement('div');
     pill.id = 'wn-client-pill';
     pill.setAttribute('style', 'display:inline-flex; align-items:center');
