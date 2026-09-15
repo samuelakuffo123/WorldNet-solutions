@@ -58,7 +58,8 @@ test('status changes are recorded in each entity status history', async () => {
 
         const createdConsultation = await jsonFetch(`${baseUrl}/api/consultations`, {
             method: 'POST',
-            body: JSON.stringify({ name: 'Kofi Boateng', company: 'Adom Corp', email: 'kofi@example.com', phone: '+233244000001', preferred_date: '2026-11-20', preferred_time: '10:30', notes: 'Needs a site audit.' })
+            headers: adminHeaders,
+            body: JSON.stringify({ name: 'Kofi Boateng', company: 'Adom Corp', email: 'kofi@example.com', phone: '+233244000001', service_type: 'Network Infrastructure', preferred_contact: 'email', preferred_date: '2026-11-20', preferred_time: '10:30', notes: 'Needs a site audit.' })
         });
         assert.equal(createdConsultation.response.status, 201);
         const consultationId = createdConsultation.body.consultation.id;

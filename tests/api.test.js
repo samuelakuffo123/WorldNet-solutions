@@ -244,14 +244,22 @@ test('appointment booking rejects past dates and saves future requests', async (
 test('consultation requests can be tracked by email and phone', async () => {
     const { baseUrl, cleanup } = await startTestServer();
     try {
-        const consultationResponse = await fetch(`${baseUrl}/api/consultations`, {
+        const loginResponse = await fetch(`${baseUrl}/api/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: 'admin@worldnetict.com', password: 'admin123' })
+        });
+        const { token } = await loginResponse.json();
+        const consultationResponse = await fetch(`${baseUrl}/api/consultations`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
             body: JSON.stringify({
                 name: 'Noah',
                 company: 'Helix Labs',
                 email: 'noah@example.com',
                 phone: '+233200000002',
+                service_type: 'Cybersecurity',
+                preferred_contact: 'email',
                 preferred_date: '2026-08-20',
                 preferred_time: '10:30'
             })
@@ -271,9 +279,16 @@ test('consultation requests can be tracked by email and phone', async () => {
 test('consultation withdrawal requires the requester email and phone', async () => {
     const { baseUrl, cleanup } = await startTestServer();
     try {
+        const loginResponse = await fetch(`${baseUrl}/api/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: 'admin@worldnetict.com', password: 'admin123' })
+        });
+        const { token } = await loginResponse.json();
         const createResponse = await fetch(`${baseUrl}/api/consultations`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: 'Iris', email: 'iris@example.com', phone: '+233200000019', preferred_date: '2026-09-01', preferred_time: '10:00' })
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ name: 'Iris', email: 'iris@example.com', phone: '+233200000019', service_type: 'Data Centre', preferred_contact: 'phone', preferred_date: '2026-09-01', preferred_time: '10:00' })
         });
         const { consultation } = await createResponse.json();
         const deniedResponse = await fetch(`${baseUrl}/api/consultations/${consultation.id}/withdraw`, {
@@ -306,12 +321,14 @@ test('new consultations create an admin notification', async () => {
 
         const consultationResponse = await fetch(`${baseUrl}/api/consultations`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
             body: JSON.stringify({
                 name: 'Nia',
                 company: 'Northwind',
                 email: 'nia-notify@example.com',
                 phone: '+233200000011',
+                service_type: 'Software Development',
+                preferred_contact: 'email',
                 preferred_date: '2026-09-01',
                 preferred_time: '11:00'
             })
@@ -350,12 +367,14 @@ test('admin can assign consultations to a department and worker', async () => {
 
         const consultationResponse = await fetch(`${baseUrl}/api/consultations`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
             body: JSON.stringify({
                 name: 'Mina',
                 company: 'BluePeak',
                 email: 'mina-assignment@example.com',
                 phone: '+233200000009',
+                service_type: 'Network Infrastructure',
+                preferred_contact: 'email',
                 preferred_date: '2026-08-14',
                 preferred_time: '14:00'
             })
@@ -615,12 +634,14 @@ test('admin can update inquiry and consultation statuses', async () => {
 
         const consultationResponse = await fetch(`${baseUrl}/api/consultations`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
             body: JSON.stringify({
                 name: 'Mina',
                 company: 'BluePeak',
                 email: 'mina@example.com',
                 phone: '+233200000001',
+                service_type: 'Cloud Services',
+                preferred_contact: 'phone',
                 preferred_date: '2026-08-14',
                 preferred_time: '14:00'
             })
@@ -720,12 +741,14 @@ test('workers can sign in and view only their own assignments', async () => {
 
         const consultationResponse = await fetch(`${baseUrl}/api/consultations`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: adminHeaders,
             body: JSON.stringify({
                 name: 'Selina',
                 company: 'Coastline',
                 email: 'selina-worker@example.com',
                 phone: '+233200000012',
+                service_type: 'Network Infrastructure',
+                preferred_contact: 'email',
                 preferred_date: '2026-08-15',
                 preferred_time: '10:00'
             })
@@ -1038,12 +1061,14 @@ test('department head workers can view and update their department; regular work
 
         const consultationResponse = await fetch(`${baseUrl}/api/consultations`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: adminHeaders,
             body: JSON.stringify({
                 name: 'Ebo Quaye',
                 company: 'EboFix',
                 email: 'ebo-dept@example.com',
                 phone: '+233200000099',
+                service_type: 'Data Centre',
+                preferred_contact: 'email',
                 preferred_date: '2026-09-01',
                 preferred_time: '11:00'
             })

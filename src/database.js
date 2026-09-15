@@ -95,14 +95,29 @@ const schema = `
         company TEXT NOT NULL DEFAULT '',
         email TEXT NOT NULL,
         phone TEXT NOT NULL,
+        user_id TEXT NOT NULL DEFAULT '',
+        service_type TEXT NOT NULL DEFAULT '',
+        preferred_contact TEXT NOT NULL DEFAULT 'email',
+        preferred_timeframe TEXT NOT NULL DEFAULT '',
         preferred_date TEXT NOT NULL,
         preferred_time TEXT NOT NULL,
         notes TEXT NOT NULL DEFAULT '',
+        admin_notes TEXT NOT NULL DEFAULT '',
         status TEXT NOT NULL DEFAULT 'pending',
         assigned_department TEXT NOT NULL DEFAULT '',
         assigned_worker TEXT NOT NULL DEFAULT '',
         handled_by TEXT NOT NULL DEFAULT '',
         handled_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        full_name TEXT NOT NULL,
+        email TEXT NOT NULL UNIQUE,
+        password_hash TEXT NOT NULL,
+        phone TEXT NOT NULL,
+        company_name TEXT NOT NULL DEFAULT '',
+        email_verified BOOLEAN NOT NULL DEFAULT FALSE,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     CREATE TABLE IF NOT EXISTS workers (
@@ -171,6 +186,11 @@ const schema = `
     ALTER TABLE consultations ADD COLUMN IF NOT EXISTS assigned_worker TEXT NOT NULL DEFAULT '';
     ALTER TABLE inquiries ADD COLUMN IF NOT EXISTS status_history JSONB NOT NULL DEFAULT '[]';
     ALTER TABLE consultations ADD COLUMN IF NOT EXISTS status_history JSONB NOT NULL DEFAULT '[]';
+    ALTER TABLE consultations ADD COLUMN IF NOT EXISTS user_id TEXT NOT NULL DEFAULT '';
+    ALTER TABLE consultations ADD COLUMN IF NOT EXISTS service_type TEXT NOT NULL DEFAULT '';
+    ALTER TABLE consultations ADD COLUMN IF NOT EXISTS preferred_contact TEXT NOT NULL DEFAULT 'email';
+    ALTER TABLE consultations ADD COLUMN IF NOT EXISTS preferred_timeframe TEXT NOT NULL DEFAULT '';
+    ALTER TABLE consultations ADD COLUMN IF NOT EXISTS admin_notes TEXT NOT NULL DEFAULT '';
     ALTER TABLE reports ADD COLUMN IF NOT EXISTS status_history JSONB NOT NULL DEFAULT '[]';
     ALTER TABLE workers ADD COLUMN IF NOT EXISTS email TEXT NOT NULL DEFAULT '';
     ALTER TABLE workers ADD COLUMN IF NOT EXISTS password_hash TEXT NOT NULL DEFAULT '';
@@ -207,7 +227,12 @@ function fromRows(rows, settings) {
             assignedWorker: row.assigned_worker || '',
             handledBy: row.handled_by || '',
             handledAt: row.handled_at?.toISOString() || '',
-            statusHistory: row.status_history || []
+            statusHistory: row.status_history || [],
+            userId: row.user_id || '',
+            serviceType: row.service_type || '',
+            preferredContact: row.preferred_contact || 'email',
+            preferredTimeframe: row.preferred_timeframe || '',
+            adminNotes: row.admin_notes || ''
         })),
         workers: rows.workers.map((row) => ({ id: row.id, name: row.name, department: row.department, role: row.role, email: row.email || '', passwordHash: row.password_hash || '', tempPassword: row.temp_password || '', profilePhoto: row.profile_photo || '', isDepartmentHead: Boolean(row.is_department_head) })),
         reports: rows.reports.map((row) => ({
@@ -241,6 +266,16 @@ function fromRows(rows, settings) {
         })),
         notifications: rows.notifications.map((row) => ({ id: row.id, type: row.type, title: row.title, message: row.message, relatedId: row.related_id, read: row.read, createdAt: row.created_at.toISOString() })),
         admins: rows.admins.map((row) => ({ id: row.id, name: row.name, email: row.email, passwordHash: row.password_hash, role: row.role, tempPassword: row.temp_password || '', profilePhoto: row.profile_photo || '' })),
+        users: rows.users.map((row) => ({
+            id: row.id,
+            fullName: row.full_name,
+            email: row.email,
+            passwordHash: row.password_hash,
+            phone: row.phone,
+            companyName: row.company_name || '',
+            emailVerified: Boolean(row.email_verified),
+            createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at
+        })),
         settings
     };
 }
@@ -289,9 +324,10 @@ export async function readDatabase() {
         const notifications = await client.query('SELECT * FROM notifications ORDER BY created_at DESC');
         const reports = await client.query('SELECT * FROM reports ORDER BY submitted_at DESC');
         const admins = await client.query('SELECT * FROM admins ORDER BY id');
+        const users = await client.query('SELECT * FROM users ORDER BY created_at DESC');
         const auditLogs = await client.query('SELECT * FROM audit_logs ORDER BY created_at DESC');
         const settingRows = await client.query("SELECT value FROM settings WHERE key = 'application'");
-        return fromRows({ services: services.rows, portfolio: portfolio.rows, inquiries: inquiries.rows, consultations: consultations.rows, workers: workers.rows, notifications: notifications.rows, reports: reports.rows, admins: admins.rows, audit_logs: auditLogs.rows }, settingRows.rows[0]?.value || {});
+        return fromRows({ services: services.rows, portfolio: portfolio.rows, inquiries: inquiries.rows, consultations: consultations.rows, workers: workers.rows, notifications: notifications.rows, reports: reports.rows, admins: admins.rows, users: users.rows, audit_logs: auditLogs.rows }, settingRows.rows[0]?.value || {});
     } finally {
         client.release();
     }
@@ -321,17 +357,18 @@ async function replaceDatabase(client, data) {
     }
     for (const item of data.portfolio) await client.query('INSERT INTO portfolio (id, title, client, category, description, outcome) VALUES ($1,$2,$3,$4,$5,$6)', [item.id, item.title, item.client, item.category, item.description || '', item.outcome || '']);
     for (const item of data.inquiries) await client.query('INSERT INTO inquiries (id, name, company, email, phone, service_type, message, status, handled_by, handled_at, status_history, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)', [item.id, item.name, item.company || '', item.email, item.phone, item.service_type, item.message, item.status, item.handledBy || '', item.handledAt || null, JSON.stringify(item.statusHistory || []), item.createdAt]);
-    for (const item of data.consultations) await client.query('INSERT INTO consultations (id, name, company, email, phone, preferred_date, preferred_time, notes, status, assigned_department, assigned_worker, handled_by, handled_at, status_history, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)', [item.id, item.name, item.company || '', item.email, item.phone, item.preferred_date, item.preferred_time, item.notes || '', item.status, item.assignedDepartment || '', item.assignedWorker || '', item.handledBy || '', item.handledAt || null, JSON.stringify(item.statusHistory || []), item.createdAt]);
+    for (const item of data.consultations) await client.query('INSERT INTO consultations (id, name, company, email, phone, user_id, service_type, preferred_contact, preferred_timeframe, preferred_date, preferred_time, notes, admin_notes, status, assigned_department, assigned_worker, handled_by, handled_at, status_history, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)', [item.id, item.name, item.company || '', item.email, item.phone, item.userId || '', item.serviceType || '', item.preferredContact || 'email', item.preferredTimeframe || '', item.preferred_date, item.preferred_time, item.notes || '', item.adminNotes || '', item.status, item.assignedDepartment || '', item.assignedWorker || '', item.handledBy || '', item.handledAt || null, JSON.stringify(item.statusHistory || []), item.createdAt]);
     for (const item of data.workers || []) await client.query('INSERT INTO workers (id, name, department, role, email, password_hash, temp_password, profile_photo, is_department_head) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)', [item.id, item.name, item.department, item.role || '', item.email || '', item.passwordHash || '', item.tempPassword || '', item.profilePhoto || '', Boolean(item.isDepartmentHead)]);
     for (const item of data.reports || []) await client.query('INSERT INTO reports (id, worker_id, worker_name, department, title, notes, file_name, file_type, file_data, file_key, file_size, status, read, status_history, submitted_at, deleted, deleted_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)', [item.id, item.workerId, item.workerName, item.department || '', item.title, item.notes || '', item.fileName, item.fileType || 'application/pdf', item.fileData || '', item.fileKey || '', Number(item.fileSize || 0), item.status || 'new', Boolean(item.read), JSON.stringify(item.statusHistory || []), item.submittedAt, Boolean(item.deleted), item.deletedAt || null]);
     for (const item of data.auditLogs || []) await client.query('INSERT INTO audit_logs (id, action, actor, actor_id, target_type, target_id, details, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)', [item.id, item.action, item.actor || '', item.actorId || '', item.targetType || '', item.targetId || '', JSON.stringify(item.details || {}), item.createdAt]);
     for (const item of data.notifications || []) await client.query('INSERT INTO notifications (id, type, title, message, related_id, read, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)', [item.id, item.type, item.title, item.message, item.relatedId || '', Boolean(item.read), item.createdAt]);
     for (const item of data.admins) await client.query('INSERT INTO admins (id, name, email, password_hash, role, temp_password, profile_photo) VALUES ($1,$2,$3,$4,$5,$6,$7)', [item.id, item.name, item.email, item.passwordHash, item.role, item.tempPassword || '', item.profilePhoto || '']);
+    for (const item of data.users || []) await client.query('INSERT INTO users (id, full_name, email, password_hash, phone, company_name, email_verified, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)', [item.id, item.fullName, item.email, item.passwordHash, item.phone, item.companyName || '', Boolean(item.emailVerified), item.createdAt || new Date().toISOString()]);
     await client.query("INSERT INTO settings (key, value) VALUES ('application', $1)", [JSON.stringify(data.settings)]);
 }
 
 async function clearDatabase(client) {
-    for (const table of ['services', 'portfolio', 'inquiries', 'consultations', 'workers', 'reports', 'notifications', 'admins', 'audit_logs', 'settings']) {
+    for (const table of ['services', 'portfolio', 'inquiries', 'consultations', 'workers', 'reports', 'notifications', 'admins', 'users', 'audit_logs', 'settings']) {
         await client.query(`DELETE FROM ${table}`);
     }
 }

@@ -433,6 +433,20 @@ maintenance after the freeze. New chronological entries:
 | **Reviewed By** | Samuel Akuffo |
 | **Confidence Level** | High - verified by the full suite and syntax checks |
 
+### [September 15, 2026] - Guest Mode & Consultation Request feature
+
+| Detail | Information |
+|--------|-------------|
+| **Date** | September 15, 2026 |
+| **Tool Used** | OpenCode (AI coding agent) |
+| **Purpose** | Implement the Guest Mode & Consultation Request spec: browse without a login wall, minimal registration gated only at the consultation request point, auth modal (Sign up / Log in tabs), client dashboard with status badges, profile + password change, admin pipeline statuses (`contacted`, `closed`) and `admin_notes` |
+| **Task** | Added `users` table + consultation columns (`user_id`, `service_type`, `preferred_contact`, `preferred_timeframe`, `admin_notes`); client auth endpoints; gated consultation submission; client dashboard page; public reset-password page; admin status/notes UI; updated existing suite for the gating change |
+| **Output** | Backend (`src/server.js`, `src/database.js`, `src/validation.js`), frontend (`src/public/consultation.html`, `src/public/client.html`, `src/public/js/app.js`, `src/public/js/client.js`, `src/public/js/admin.js`, `src/public/css/styles.css`, `src/public/reset-password.html`), tests (`tests/client.test.js` new; `tests/api.test.js`, `tests/history.test.js` updated) |
+| **Human changes** | Feature spec from the team; review of scope; commit approval |
+| **Verification** | `npm run verify` — 35/35 tests pass; `node --check` clean; browser-style smoke test of cookie + CSRF client flow |
+| **Reviewed By** | Samuel Akuffo |
+| **Confidence Level** | High - verified by the full suite and syntax checks |
+
 ### [September 15, 2026] - Documentation: AI Usage Log sync
 
 | Detail | Information |

@@ -49,7 +49,7 @@ export function validateFields(body, rules) {
 }
 
 export const INQUIRY_STATUSES = ['new', 'contacted', 'in_review', 'resolved', 'closed', 'withdrawn'];
-export const CONSULTATION_STATUSES = ['pending', 'confirmed', 'completed', 'cancelled', 'withdrawn'];
+export const CONSULTATION_STATUSES = ['pending', 'contacted', 'confirmed', 'completed', 'cancelled', 'closed', 'withdrawn'];
 export const REPORT_STATUSES = ['draft', 'new', 'under_review', 'approved', 'rejected', 'archived'];
 
 const INQUIRY_TRANSITIONS = {
@@ -62,10 +62,12 @@ const INQUIRY_TRANSITIONS = {
 };
 
 const CONSULTATION_TRANSITIONS = {
-    pending: ['confirmed', 'cancelled', 'withdrawn'],
+    pending: ['contacted', 'confirmed', 'cancelled', 'withdrawn'],
+    contacted: ['confirmed', 'completed', 'closed', 'cancelled'],
     confirmed: ['completed', 'cancelled'],
-    completed: ['cancelled'],
+    completed: ['closed', 'cancelled'],
     cancelled: ['pending'],
+    closed: [],
     withdrawn: []
 };
 

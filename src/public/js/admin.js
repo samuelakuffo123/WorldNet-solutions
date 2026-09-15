@@ -1112,8 +1112,10 @@ async function loadDashboard() {
                         <div style="display:flex; gap:0.4rem; justify-content:flex-end; align-items:center">
                             <select data-status-select="consultation-${item.id}" style="border:1px solid var(--wn-border); border-radius:0.7rem; padding:0.4rem 0.5rem; font:inherit; font-size:0.8rem">
                                 <option value="pending" ${item.status === 'pending' ? 'selected' : ''}>Pending</option>
-                                <option value="confirmed" ${item.status === 'confirmed' ? 'selected' : ''}>Confirmed</option>
+                                <option value="contacted" ${item.status === 'contacted' ? 'selected' : ''}>Contacted</option>
+                                <option value="confirmed" ${item.status === 'confirmed' ? 'selected' : ''}>Scheduled</option>
                                 <option value="completed" ${item.status === 'completed' ? 'selected' : ''}>Completed</option>
+                                <option value="closed" ${item.status === 'closed' ? 'selected' : ''}>Closed</option>
                                 <option value="cancelled" ${item.status === 'cancelled' ? 'selected' : ''}>Cancelled</option>
                             </select>
                             <button class="btn-wn btn-wn-secondary" data-update-consultation="${item.id}">Save</button>
@@ -1461,8 +1463,10 @@ async function renderRecordsPage(type) {
                                 <button type="button" class="btn-wn btn-wn-ghost" data-history-open="${item.id}">History</button>
                                 <select data-status-select="consultation-${item.id}" style="border:1px solid var(--wn-border); border-radius:0.7rem; padding:0.4rem 0.5rem; font:inherit; font-size:0.8rem">
                                     <option value="pending" ${item.status === 'pending' ? 'selected' : ''}>Pending</option>
-                                    <option value="confirmed" ${item.status === 'confirmed' ? 'selected' : ''}>Confirmed</option>
+                                    <option value="contacted" ${item.status === 'contacted' ? 'selected' : ''}>Contacted</option>
+                                    <option value="confirmed" ${item.status === 'confirmed' ? 'selected' : ''}>Scheduled</option>
                                     <option value="completed" ${item.status === 'completed' ? 'selected' : ''}>Completed</option>
+                                    <option value="closed" ${item.status === 'closed' ? 'selected' : ''}>Closed</option>
                                     <option value="cancelled" ${item.status === 'cancelled' ? 'selected' : ''}>Cancelled</option>
                                 </select>
                                 <select data-department-select="consultation-${item.id}" style="border:1px solid var(--wn-border); border-radius:0.7rem; padding:0.4rem 0.5rem; font:inherit; font-size:0.8rem">
@@ -1473,6 +1477,7 @@ async function renderRecordsPage(type) {
                                     <option value="">Worker</option>
                                     ${workers.map((worker) => `<option value="${escapeHtml(worker.name)}" ${item.assignedWorker === worker.name ? 'selected' : ''}>${escapeHtml(worker.name)}</option>`).join('')}
                                 </select>
+<input id="consultation-notes-${item.id}" type="text" value="${escapeHtml(item.adminNotes || '')}" placeholder="Notes for client" aria-label="Internal notes for ${escapeHtml(item.name)}" style="border:1px solid var(--wn-border); border-radius:0.7rem; padding:0.4rem 0.5rem; font:inherit; font-size:0.8rem; min-width:120px" />
                                 <button class="btn-wn btn-wn-secondary" data-update-consultation="${item.id}">Save</button>
                             </div>
                         </td>
@@ -1502,7 +1507,8 @@ async function renderRecordsPage(type) {
                         body: JSON.stringify({
                             status: statusSelect.value,
                             assignedDepartment: departmentSelect ? departmentSelect.value : '',
-                            assignedWorker: workerSelect ? workerSelect.value : ''
+                            assignedWorker: workerSelect ? workerSelect.value : '',
+                            adminNotes: document.getElementById(`consultation-notes-${consultationId}`)?.value || ''
                         })
                     });
                     showToast('Consultation updated');

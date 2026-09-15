@@ -13,7 +13,7 @@
         <div class="container">
             <nav>
                 <a href="/" style="font-weight:800; font-size:1.1rem">WorldNet</a>
-                
+
                 <button class="nav-toggle" id="nav-toggle" aria-label="Toggle menu" aria-expanded="false" aria-controls="nav-links">
                     <span></span><span></span><span></span>
                 </button>
@@ -42,37 +42,54 @@
     <main class="section">
         <div class="container grid-2">
             <div class="card" style="padding:1.5rem">
-                <h1>Schedule a consultation</h1>
-                <p class="muted">Let us know your preferred date and time and we will confirm shortly.</p>
-                <form id="consultation-form" class="form-grid" style="margin-top:1rem">
-                    <div class="grid-2">
-                        <div><label for="cons-name">Name</label><input id="cons-name" name="name" required /></div>
-                        <div><label for="cons-email">Email</label><input id="cons-email" type="email" name="email" required /></div>
+                <h1>Request a consultation</h1>
+                <p class="muted">Tell us what you need and a senior engineer will contact you. Create a free account so you can follow every request from your dashboard.</p>
+                <div data-requesting-as style="margin:0.5rem 0 1rem"></div>
+                <form id="consultation-form" class="form-grid" style="margin-top:1rem" novalidate>
+                    <div>
+                        <label for="cons-service">Service</label>
+                        <select id="cons-service" name="service_type" required>
+                            <option value="">Select a service…</option>
+                        </select>
                     </div>
-                    <div class="grid-2">
-                        <div><label for="cons-phone">Phone</label><input id="cons-phone" name="phone" required /></div>
-                        <div><label for="cons-company">Company</label><input id="cons-company" name="company" /></div>
+                    <div>
+                        <label>Preferred contact method</label>
+                        <div class="radio-grid">
+                            <label class="radio-card"><input type="radio" name="preferred_contact" value="email" checked />Email</label>
+                            <label class="radio-card"><input type="radio" name="preferred_contact" value="phone" />Phone</label>
+                        </div>
                     </div>
-                    <div class="grid-2">
-                        <div><label for="cons-date">Preferred date</label><input id="cons-date" type="date" name="preferred_date" required /></div>
-                        <div><label for="cons-time">Preferred time</label><input id="cons-time" type="time" name="preferred_time" required /></div>
+                    <div>
+                        <label for="cons-timeframe">Preferred timeframe</label>
+                        <select id="cons-timeframe" name="preferred_timeframe">
+                            <option value="">No preference</option>
+                            <option value="asap">As soon as possible</option>
+                            <option value="within_a_week">Within a week</option>
+                            <option value="within_a_month">Within a month</option>
+                            <option value="just_exploring">Just exploring for now</option>
+                        </select>
                     </div>
-                    <div><label for="cons-notes">Notes</label><textarea id="cons-notes" name="notes"></textarea></div>
+                    <div>
+                        <label for="cons-notes">What do you need?</label>
+                        <textarea id="cons-notes" name="notes" rows="4" placeholder="Share a short summary of the project, goals, or the challenge you want solved."></textarea>
+                    </div>
                     <button class="btn btn-primary" type="submit">Request consultation</button>
+                    <p data-form-status class="muted" aria-live="polite"></p>
                 </form>
             </div>
             <div class="card" style="padding:1.5rem">
-                <h3>Track your request</h3>
-                <p class="muted">Use the email and phone number from your request to see the current status of your request.</p>
-                <form id="consultation-tracker-form" class="form-grid" style="margin-top:1rem">
-                    <div><label for="track-email">Email</label><input id="track-email" type="email" name="email" required /></div>
-                    <div><label for="track-phone">Phone</label><input id="track-phone" name="phone" required /></div>
-                    <button class="btn btn-secondary" type="submit">Check status</button>
-                </form>
-                <div id="consultation-tracker-result" class="card"
-                    style="margin-top:1rem; padding:1rem; background:rgba(37, 99, 235, 0.06)">
-                    <p class="muted" style="margin:0">Your request status will appear here after you search.</p>
-                </div>
+                <h3>How it works</h3>
+                <ul class="step-list">
+                    <li><strong>Request</strong> — pick a service and tell us what you need.</li>
+                    <li><strong>We reach out</strong> — a senior engineer contacts you on your preferred channel.</li>
+                    <li><strong>Follow along</strong> — watch the status of every request from your dashboard.</li>
+                </ul>
+                <p class="muted">No booking codes to keep track of — your account is how you check status.</p>
+                <p style="margin-top:1rem">
+                    Already have requests?
+                    <a class="linklike" data-sign-in-any href="#">Sign in</a> or
+                    <a href="/client.html">go to your dashboard</a>.
+                </p>
             </div>
         </div>
     </main>

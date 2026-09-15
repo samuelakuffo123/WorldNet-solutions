@@ -242,6 +242,7 @@ function buildInitialData() {
                 }
             ]
             : [],
+        users: [],
         settings: {
             companyName: 'WorldNet ICT Solutions',
             contactEmail: 'info@worldnetictsolutions.com',
@@ -317,6 +318,17 @@ function toPublicWorker(worker) {
     if (!worker) return worker;
     const { passwordHash, ...publicWorker } = worker;
     return publicWorker;
+}
+
+function toPublicClient(user) {
+    if (!user) return user;
+    return {
+        id: user.id,
+        fullName: user.fullName,
+        email: user.email,
+        phone: user.phone,
+        companyName: user.companyName || ''
+    };
 }
 
 function toPublicAdmin(admin) {
@@ -401,6 +413,16 @@ function workerRequired(req, res, next) {
     }
     if (!state.workers.some((worker) => worker.id === req.admin.id)) {
         return res.status(403).json({ error: 'Your team account is no longer active. Please contact an administrator.' });
+    }
+    next();
+}
+
+function clientRequired(req, res, next) {
+    if (!req.admin || req.admin.role !== 'client') {
+        return res.status(403).json({ error: 'Client sign-in required' });
+    }
+    if (!state.users.some((user) => user.id === req.admin.id)) {
+        return res.status(403).json({ error: 'Your account is no longer active.' });
     }
     next();
 }
@@ -736,26 +758,38 @@ app.put('/api/consultations/:id/withdraw', async (req, res) => {
 });
 
 app.post('/api/consultations', formLimiter, async (req, res) => {
-    const { name, company, email, phone, preferred_date, preferred_time, notes } = req.body;
+    if (!req.admin || !['client', 'admin', 'worker'].includes(req.admin.role)) {
+        return res.status(401).json({ error: 'Please sign in to request a consultation.' });
+    }
+    const isClient = req.admin.role === 'client';
+    const user = isClient ? state.users.find((item) => item.id === req.admin.id) : null;
+    if (isClient && !user) return res.status(403).json({ error: 'Your account is no longer active.' });
+    const { service_type, preferred_contact, preferred_timeframe, preferred_date, preferred_time, notes } = req.body;
     const errors = validateFields(req.body, {
-        name: { required: true, maxLength: 200 },
-        email: { required: true, type: 'email', maxLength: 254 },
-        phone: { required: true, type: 'phone', maxLength: 30 },
-        preferred_date: { required: true, type: 'date' },
-        preferred_time: { required: true, type: 'time' }
+        service_type: { required: true, maxLength: 200 },
+        preferred_contact: { required: true, oneOf: ['email', 'phone'] },
+        preferred_timeframe: { oneOf: ['asap', 'within_a_week', 'within_a_month', 'just_exploring'] },
+        preferred_date: { type: 'date' },
+        preferred_time: { type: 'time' },
+        notes: { maxLength: 5000 }
     });
     if (errors.length) return res.status(400).json({ error: errors[0] });
-    const submissionKey = `${email}:${phone}:${preferred_date}:${preferred_time}`.toLowerCase();
+    const submissionKey = `${req.admin.id}:${service_type}:${preferred_timeframe || ''}:${preferred_date || ''}:${preferred_time || ''}:${notes || ''}`.toLowerCase();
     if (duplicateCheck(submissionKey)) return res.status(409).json({ error: 'A similar consultation request was submitted recently.' });
     let consultation = {
         id: `con-${crypto.randomBytes(3).toString('hex')}`,
-        name: validateName(name),
-        company: validateText(company || '', 200),
-        email: String(email).trim().toLowerCase(),
-        phone: sanitizeText(phone),
-        preferred_date: sanitizeText(preferred_date),
-        preferred_time: sanitizeText(preferred_time),
+        userId: user ? user.id : req.admin.id,
+        name: user ? user.fullName : validateName(req.body.name || ''),
+        company: user ? (user.companyName || '') : validateText(req.body.company || '', 200),
+        email: user ? user.email : String(req.body.email || '').trim().toLowerCase(),
+        phone: user ? user.phone : sanitizeText(req.body.phone || ''),
+        serviceType: sanitizeText(service_type),
+        preferredContact: preferred_contact === 'phone' ? 'phone' : 'email',
+        preferredTimeframe: sanitizeText(preferred_timeframe || ''),
+        preferred_date: sanitizeText(preferred_date || ''),
+        preferred_time: sanitizeText(preferred_time || ''),
         notes: validateText(notes || '', 5000),
+        adminNotes: '',
         status: 'pending',
         assignedDepartment: '',
         assignedWorker: '',
@@ -765,8 +799,8 @@ app.post('/api/consultations', formLimiter, async (req, res) => {
     };
     consultation = initStatusHistory(consultation, 'client');
     state.consultations.unshift(consultation);
-    createNotification('consultation', consultation, 'New consultation request', `${consultation.name} requested a consultation for ${consultation.preferred_date} at ${consultation.preferred_time}.`);
-    recordAudit('consultation.create', 'public', '', 'consultation', consultation.id, { email: consultation.email });
+    createNotification('consultation', consultation, 'New consultation request', `${consultation.name} requested a consultation${consultation.serviceType ? ` for ${consultation.serviceType}` : ''}.`);
+    recordAudit('consultation.create', consultation.name, consultation.userId, 'consultation', consultation.id, { email: consultation.email });
     await saveState();
     await notifySubmission('consultation', consultation);
     res.status(201).json({ ok: true, consultation });
@@ -1160,6 +1194,10 @@ app.get('/api/me', authRequired, (req, res) => {
     if (worker) {
         return res.json({ ok: true, role: 'worker', worker: toPublicWorker(worker) });
     }
+    const user = state.users.find((item) => item.id === req.admin.id);
+    if (user) {
+        return res.json({ ok: true, role: 'client', client: toPublicClient(user) });
+    }
     return res.status(404).json({ error: 'Account not found' });
 });
 
@@ -1169,6 +1207,108 @@ app.get('/api/auth/config', (_req, res) => {
         googleClientId: process.env.GOOGLE_CLIENT_ID || '',
         needsSetup: state.admins.length === 0
     });
+});
+
+app.post('/api/auth/register', formLimiter, async (req, res) => {
+    const { fullName, email, phone, password, companyName } = req.body;
+    const errors = validateFields(req.body, {
+        fullName: { required: true, maxLength: 200 },
+        email: { required: true, type: 'email', maxLength: 254 },
+        phone: { required: true, type: 'phone', maxLength: 30 },
+        password: { required: true, minLength: 8, maxLength: 200 },
+        companyName: { maxLength: 200 }
+    });
+    if (errors.length) return res.status(400).json({ error: errors[0] });
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const emailTaken = state.users.some((user) => user.email === normalizedEmail)
+        || state.admins.some((admin) => admin.email.toLowerCase() === normalizedEmail)
+        || state.workers.some((worker) => worker.email && worker.email.toLowerCase() === normalizedEmail);
+    if (emailTaken) return res.status(409).json({ error: 'An account already exists for this email.' });
+    const user = {
+        id: nextSequentialId(state.users, 'cli'),
+        fullName: validateName(fullName),
+        email: normalizedEmail,
+        phone: sanitizeText(phone),
+        companyName: validateText(companyName || '', 200),
+        passwordHash: bcrypt.hashSync(String(password), 10),
+        emailVerified: false,
+        createdAt: new Date().toISOString()
+    };
+    state.users.push(user);
+    recordAudit('client.register', user.fullName, user.id, 'client', user.id, { email: user.email });
+    await saveState();
+    const token = createToken({ id: user.id, email: user.email, name: user.fullName, role: 'client' });
+    setSessionCookies(res, token);
+    res.status(201).json({ ok: true, client: toPublicClient(user), token });
+});
+
+app.post('/api/auth/login', loginLimiter, async (req, res) => {
+    const email = String(req.body.email || '').trim().toLowerCase();
+    const password = String(req.body.password || '');
+    if (!email || !password) return res.status(400).json({ error: 'Email and password are required.' });
+    const user = state.users.find((item) => item.email === email);
+    if (!user || !user.passwordHash || !bcrypt.compareSync(password, user.passwordHash)) {
+        return res.status(401).json({ error: 'Invalid email or password.' });
+    }
+    const token = createToken({ id: user.id, email: user.email, name: user.fullName, role: 'client' });
+    setSessionCookies(res, token);
+    recordAudit('client.login', user.fullName, user.id, 'client', user.id);
+    await saveState();
+    res.json({ ok: true, client: toPublicClient(user), token });
+});
+
+app.put('/api/auth/profile', clientRequired, async (req, res) => {
+    const user = state.users.find((item) => item.id === req.admin.id);
+    if (!user) return res.status(404).json({ error: 'Account not found' });
+    const { fullName, phone, companyName } = req.body;
+    const errors = validateFields(req.body, {
+        fullName: { maxLength: 200 },
+        phone: { type: 'phone', maxLength: 30 },
+        companyName: { maxLength: 200 }
+    });
+    if (errors.length) return res.status(400).json({ error: errors[0] });
+    if (fullName !== undefined && String(fullName).trim() !== '') user.fullName = validateName(fullName);
+    if (phone !== undefined && String(phone).trim() !== '') user.phone = sanitizeText(phone);
+    if (companyName !== undefined) user.companyName = validateText(companyName, 200);
+    recordAudit('client.profile_update', user.fullName, user.id, 'client', user.id);
+    await saveState();
+    res.json({ ok: true, client: toPublicClient(user) });
+});
+
+app.post('/api/auth/password', clientRequired, async (req, res) => {
+    const user = state.users.find((item) => item.id === req.admin.id);
+    if (!user) return res.status(404).json({ error: 'Account not found' });
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword) return res.status(400).json({ error: 'Current password is required.' });
+    if (!newPassword || String(newPassword).length < 8) return res.status(400).json({ error: 'New password must be at least 8 characters.' });
+    if (!bcrypt.compareSync(String(currentPassword), user.passwordHash)) {
+        return res.status(400).json({ error: 'Current password is incorrect.' });
+    }
+    user.passwordHash = bcrypt.hashSync(String(newPassword), 10);
+    recordAudit('client.password_change', user.fullName, user.id, 'client', user.id);
+    await saveState();
+    res.json({ ok: true, message: 'Password updated.' });
+});
+
+app.get('/api/auth/consultations', clientRequired, (_req, res) => {
+    const consultations = state.consultations
+        .filter((item) => item.userId === _req.admin.id)
+        .slice()
+        .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))
+        .map((item) => ({
+            id: item.id,
+            serviceType: item.serviceType || '',
+            status: item.status,
+            notes: item.notes || '',
+            adminNotes: item.adminNotes || '',
+            preferredContact: item.preferredContact || 'email',
+            preferredTimeframe: item.preferredTimeframe || '',
+            preferredDate: item.preferred_date || '',
+            preferredTime: item.preferred_time || '',
+            statusHistory: item.statusHistory || [],
+            createdAt: item.createdAt
+        }));
+    res.json({ ok: true, consultations });
 });
 
 app.post('/api/register', authLimiter, (_req, res) => {
@@ -1372,20 +1512,22 @@ app.put('/api/profile', authRequired, async (req, res) => {
 app.post('/api/forgot-password', authLimiter, async (req, res) => {
     const { email } = req.body;
     const normalizedEmail = String(email || '').trim().toLowerCase();
-    const admin = state.admins.find((item) => item.email.toLowerCase() === normalizedEmail);
-    if (!admin) return res.json({ ok: true, message: 'If an account exists for this email, a reset link has been sent.' });
+    const account = state.admins.find((item) => item.email.toLowerCase() === normalizedEmail)
+        || state.users.find((item) => item.email === normalizedEmail);
+    if (!account) return res.json({ ok: true, message: 'If an account exists for this email, a reset link has been sent.' });
 
+    const isAdmin = state.admins.some((item) => item === account);
     const token = makeResetToken();
-    admin.resetTokenHash = sha256(token);
-    admin.resetTokenExpires = Date.now() + 60 * 60 * 1000;
+    account.resetTokenHash = sha256(token);
+    account.resetTokenExpires = Date.now() + 60 * 60 * 1000;
     await saveState();
 
-    const resetUrl = `${process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get('host')}`}/admin/reset-password.html?token=${token}`;
+    const resetUrl = `${process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get('host')}`}/${isAdmin ? 'admin/reset-password.html' : 'reset-password.html'}?token=${token}`;
     const emailResult = await sendEmail({
-        to: admin.email,
-        subject: `${state.settings.companyName} — Reset your admin password`,
-        text: `Hi ${admin.name},\n\nClick this link to reset your admin password (valid for 1 hour):\n${resetUrl}\n\nIf you did not request this, you can ignore this email.`,
-        html: `<p>Hi ${escapeHtml(admin.name)},</p><p>Click the button below to reset your admin password. The link expires in 1 hour.</p><p style="margin:1.2rem 0"><a href="${resetUrl}" style="background:#2563eb;color:#fff;padding:0.7rem 1.2rem;border-radius:0.6rem;text-decoration:none;font-weight:600">Reset password</a></p><p>If you did not request this, you can safely ignore this email.</p>`
+        to: account.email,
+        subject: `${state.settings.companyName} — Reset your password`,
+        text: `Hi ${account.name || account.fullName},\n\nClick this link to reset your password (valid for 1 hour):\n${resetUrl}\n\nIf you did not request this, you can ignore this email.`,
+        html: `<p>Hi ${escapeHtml(account.name || account.fullName)},</p><p>Click the button below to reset your password. The link expires in 1 hour.</p><p style="margin:1.2rem 0"><a href="${resetUrl}" style="background:#2563eb;color:#fff;padding:0.7rem 1.2rem;border-radius:0.6rem;text-decoration:none;font-weight:600">Reset password</a></p><p>If you did not request this, you can safely ignore this email.</p>`
     });
 
     const response = { ok: true, message: 'If an account exists for this email, a reset link has been sent.' };
@@ -1398,16 +1540,17 @@ app.post('/api/reset-password', authLimiter, async (req, res) => {
     if (!token) return res.status(400).json({ error: 'Missing reset token.' });
     if (!password || String(password).length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters.' });
     const tokenHash = sha256(String(token));
-    const admin = state.admins.find((item) => item.resetTokenHash && item.resetTokenHash === tokenHash);
-    if (!admin) return res.status(400).json({ error: 'This reset link is invalid or has expired.' });
-    if (!admin.resetTokenExpires || Date.now() > admin.resetTokenExpires) {
+    const account = state.admins.find((item) => item.resetTokenHash && item.resetTokenHash === tokenHash)
+        || state.users.find((item) => item.resetTokenHash && item.resetTokenHash === tokenHash);
+    if (!account) return res.status(400).json({ error: 'This reset link is invalid or has expired.' });
+    if (!account.resetTokenExpires || Date.now() > account.resetTokenExpires) {
         return res.status(400).json({ error: 'This reset link has expired. Please request a new one.' });
     }
-    admin.passwordHash = bcrypt.hashSync(String(password), 10);
-    delete admin.resetTokenHash;
-    delete admin.resetTokenExpires;
-    delete admin.tempPassword;
-    recordAudit('admin.password_reset', admin.name, admin.id, 'admin', admin.id);
+    account.passwordHash = bcrypt.hashSync(String(password), 10);
+    delete account.resetTokenHash;
+    delete account.resetTokenExpires;
+    if (state.admins.includes(account)) delete account.tempPassword;
+    recordAudit('password_reset', account.name || account.fullName, account.id, account.id.startsWith('cli') ? 'client' : 'admin', account.id);
     await saveState();
     res.json({ ok: true, message: 'Password updated. You can now sign in.' });
 });
