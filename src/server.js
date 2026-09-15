@@ -327,7 +327,10 @@ function toPublicClient(user) {
         fullName: user.fullName,
         email: user.email,
         phone: user.phone,
-        companyName: user.companyName || ''
+        companyName: user.companyName || '',
+        googleId: user.googleId || '',
+        profilePhoto: user.profilePhoto || '',
+        hasPassword: Boolean(user.passwordHash)
     };
 }
 
@@ -1260,7 +1263,7 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
 app.put('/api/auth/profile', clientRequired, async (req, res) => {
     const user = state.users.find((item) => item.id === req.admin.id);
     if (!user) return res.status(404).json({ error: 'Account not found' });
-    const { fullName, phone, companyName } = req.body;
+    const { fullName, phone, companyName, profilePhoto } = req.body;
     const errors = validateFields(req.body, {
         fullName: { maxLength: 200 },
         phone: { type: 'phone', maxLength: 30 },
@@ -1270,6 +1273,7 @@ app.put('/api/auth/profile', clientRequired, async (req, res) => {
     if (fullName !== undefined && String(fullName).trim() !== '') user.fullName = validateName(fullName);
     if (phone !== undefined && String(phone).trim() !== '') user.phone = sanitizeText(phone);
     if (companyName !== undefined) user.companyName = validateText(companyName, 200);
+    if (profilePhoto !== undefined) user.profilePhoto = sanitizeProfilePhoto(profilePhoto);
     recordAudit('client.profile_update', user.fullName, user.id, 'client', user.id);
     await saveState();
     res.json({ ok: true, client: toPublicClient(user) });
@@ -1279,8 +1283,14 @@ app.post('/api/auth/password', clientRequired, async (req, res) => {
     const user = state.users.find((item) => item.id === req.admin.id);
     if (!user) return res.status(404).json({ error: 'Account not found' });
     const { currentPassword, newPassword } = req.body;
-    if (!currentPassword) return res.status(400).json({ error: 'Current password is required.' });
     if (!newPassword || String(newPassword).length < 8) return res.status(400).json({ error: 'New password must be at least 8 characters.' });
+    if (!user.passwordHash) {
+        user.passwordHash = bcrypt.hashSync(String(newPassword), 10);
+        recordAudit('client.password_set', user.fullName, user.id, 'client', user.id);
+        await saveState();
+        return res.json({ ok: true, message: 'Password set. Your account can now be signed in to with email and password too.' });
+    }
+    if (!currentPassword) return res.status(400).json({ error: 'Current password is required.' });
     if (!bcrypt.compareSync(String(currentPassword), user.passwordHash)) {
         return res.status(400).json({ error: 'Current password is incorrect.' });
     }
@@ -1575,25 +1585,76 @@ app.post('/api/auth/google', authLimiter, async (req, res) => {
     if (!googleEmail || payload.email_verified !== 'true') {
         return res.status(401).json({ error: 'Your Google account email is not verified.' });
     }
+    const googleId = String(payload.sub || '');
+    if (!googleId) return res.status(401).json({ error: 'Google did not return an account identifier.' });
 
     let admin = state.admins.find((item) => item.email.toLowerCase() === googleEmail);
-    if (!admin) {
-        admin = {
-            id: `adm-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`,
-            name: payload.name || googleEmail.split('@')[0],
-            email: googleEmail,
-            passwordHash: bcrypt.hashSync(crypto.randomBytes(32).toString('hex'), 10),
-            role: 'admin',
-            provider: 'google'
-        };
-        state.admins.push(admin);
+    if (admin) {
+        const token = createToken({ id: admin.id, email: admin.email, name: admin.name, role: admin.role });
+        setSessionCookies(res, token);
+        recordAudit('admin.login', admin.name, admin.id, 'admin', admin.id, { provider: 'google' });
         await saveState();
+        return res.json({ ok: true, token, admin: { id: admin.id, name: admin.name, email: admin.email, role: admin.role, profilePhoto: admin.profilePhoto || '' }, provider: 'google', role: 'admin' });
     }
-    const token = createToken({ id: admin.id, email: admin.email, name: admin.name, role: admin.role });
-    setSessionCookies(res, token);
-    recordAudit('admin.login', admin.name, admin.id, 'admin', admin.id, { provider: 'google' });
+
+    const worker = state.workers.find((item) => item.email && item.email.toLowerCase() === googleEmail);
+    if (worker) {
+        return res.status(403).json({ error: 'This email belongs to a WorldNet staff account. Sign in through the team portal instead.' });
+    }
+
+    let user = state.users.find((item) => item.email === googleEmail);
+    let created = false;
+    let linked = false;
+    if (user) {
+        if (user.googleId && user.googleId !== googleId) {
+            return res.status(409).json({ error: 'This email is already linked to a different Google account. Sign in with that account or use your password.' });
+        }
+        if (!user.googleId) {
+            user.googleId = googleId;
+            linked = true;
+        }
+        if (!user.emailVerified) user.emailVerified = true;
+        if (!user.profilePhoto && payload.picture) user.profilePhoto = sanitizeProfilePhoto(payload.picture);
+        if (!user.fullName && payload.name) user.fullName = validateName(payload.name);
+    } else {
+        const duplicateGoogleId = state.users.some((item) => item.googleId && item.googleId === googleId);
+        if (duplicateGoogleId) {
+            return res.status(409).json({ error: 'This Google account is already linked to another portal account.' });
+        }
+        user = {
+            id: nextSequentialId(state.users, 'cli'),
+            fullName: validateName(payload.name || googleEmail.split('@')[0]),
+            email: googleEmail,
+            phone: '',
+            companyName: '',
+            passwordHash: '',
+            googleId,
+            profilePhoto: sanitizeProfilePhoto(payload.picture || ''),
+            emailVerified: true,
+            createdAt: new Date().toISOString()
+        };
+        created = true;
+        state.users.push(user);
+    }
+    recordAudit(created ? 'client.google_signup' : linked ? 'client.google_link' : 'client.google_login', user.fullName, user.id, 'client', user.id);
     await saveState();
-    res.json({ ok: true, token, admin: { id: admin.id, name: admin.name, email: admin.email, role: admin.role, profilePhoto: admin.profilePhoto || '' }, provider: 'google' });
+    const client = toPublicClient(user);
+    const token = createToken({ id: user.id, email: user.email, name: user.fullName, role: 'client' });
+    setSessionCookies(res, token);
+    res.json({ ok: true, token, client, provider: 'google', role: 'client', created, linked });
+});
+
+app.post('/api/auth/google/disconnect', clientRequired, async (req, res) => {
+    const user = state.users.find((item) => item.id === req.admin.id);
+    if (!user) return res.status(404).json({ error: 'Account not found' });
+    if (!user.googleId) return res.status(400).json({ error: 'Google is not connected to this account.' });
+    if (!user.passwordHash) {
+        return res.status(400).json({ error: 'Set a password first so you can still sign in after disconnecting Google.' });
+    }
+    user.googleId = '';
+    recordAudit('client.google_disconnect', user.fullName, user.id, 'client', user.id);
+    await saveState();
+    res.json({ ok: true, client: toPublicClient(user) });
 });
 
 app.get('/api/settings', (_req, res) => res.json(state.settings));

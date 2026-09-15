@@ -56,7 +56,7 @@ export function securityHeaders(req, res, next) {
         "style-src 'self' 'unsafe-inline'",
         "img-src 'self' data: blob: https://images.unsplash.com",
         "font-src 'self'",
-        "connect-src 'self'",
+        "connect-src 'self' https://accounts.google.com",
         "worker-src 'self' blob:",
         "frame-src https://accounts.google.com",
         "object-src 'none'",

@@ -114,9 +114,11 @@ const schema = `
         id TEXT PRIMARY KEY,
         full_name TEXT NOT NULL,
         email TEXT NOT NULL UNIQUE,
-        password_hash TEXT NOT NULL,
+        password_hash TEXT NOT NULL DEFAULT '',
         phone TEXT NOT NULL,
         company_name TEXT NOT NULL DEFAULT '',
+        google_id TEXT NOT NULL DEFAULT '',
+        profile_photo TEXT NOT NULL DEFAULT '',
         email_verified BOOLEAN NOT NULL DEFAULT FALSE,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
@@ -191,6 +193,8 @@ const schema = `
     ALTER TABLE consultations ADD COLUMN IF NOT EXISTS preferred_contact TEXT NOT NULL DEFAULT 'email';
     ALTER TABLE consultations ADD COLUMN IF NOT EXISTS preferred_timeframe TEXT NOT NULL DEFAULT '';
     ALTER TABLE consultations ADD COLUMN IF NOT EXISTS admin_notes TEXT NOT NULL DEFAULT '';
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id TEXT NOT NULL DEFAULT '';
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_photo TEXT NOT NULL DEFAULT '';
     ALTER TABLE reports ADD COLUMN IF NOT EXISTS status_history JSONB NOT NULL DEFAULT '[]';
     ALTER TABLE workers ADD COLUMN IF NOT EXISTS email TEXT NOT NULL DEFAULT '';
     ALTER TABLE workers ADD COLUMN IF NOT EXISTS password_hash TEXT NOT NULL DEFAULT '';
@@ -273,6 +277,8 @@ function fromRows(rows, settings) {
             passwordHash: row.password_hash,
             phone: row.phone,
             companyName: row.company_name || '',
+            googleId: row.google_id || '',
+            profilePhoto: row.profile_photo || '',
             emailVerified: Boolean(row.email_verified),
             createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at
         })),
@@ -363,7 +369,7 @@ async function replaceDatabase(client, data) {
     for (const item of data.auditLogs || []) await client.query('INSERT INTO audit_logs (id, action, actor, actor_id, target_type, target_id, details, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)', [item.id, item.action, item.actor || '', item.actorId || '', item.targetType || '', item.targetId || '', JSON.stringify(item.details || {}), item.createdAt]);
     for (const item of data.notifications || []) await client.query('INSERT INTO notifications (id, type, title, message, related_id, read, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)', [item.id, item.type, item.title, item.message, item.relatedId || '', Boolean(item.read), item.createdAt]);
     for (const item of data.admins) await client.query('INSERT INTO admins (id, name, email, password_hash, role, temp_password, profile_photo) VALUES ($1,$2,$3,$4,$5,$6,$7)', [item.id, item.name, item.email, item.passwordHash, item.role, item.tempPassword || '', item.profilePhoto || '']);
-    for (const item of data.users || []) await client.query('INSERT INTO users (id, full_name, email, password_hash, phone, company_name, email_verified, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)', [item.id, item.fullName, item.email, item.passwordHash, item.phone, item.companyName || '', Boolean(item.emailVerified), item.createdAt || new Date().toISOString()]);
+    for (const item of data.users || []) await client.query(`INSERT INTO users (id, full_name, email, password_hash, phone, company_name, google_id, profile_photo, email_verified, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`, [item.id, item.fullName, item.email, item.passwordHash || '', item.phone, item.companyName || '', item.googleId || '', item.profilePhoto || '', Boolean(item.emailVerified), item.createdAt || new Date().toISOString()]);
     await client.query("INSERT INTO settings (key, value) VALUES ('application', $1)", [JSON.stringify(data.settings)]);
 }
 

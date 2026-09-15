@@ -617,6 +617,10 @@ function openAuthModal(defaultTab) {
           <button type="button" class="auth-tab" data-auth-tab="login" role="tab">Log in</button>
           <button type="button" class="auth-tab" data-auth-tab="signup" role="tab">Sign up</button>
         </div>
+        <div data-google-item class="auth-google-block" hidden>
+          <div data-google-signin></div>
+          <div class="auth-or" aria-hidden="true"><span>or</span></div>
+        </div>
         <form id="auth-login-form" class="auth-form" data-auth-panel="login" novalidate>
           <div><label for="auth-login-email">Email</label><input id="auth-login-email" name="email" type="email" required autocomplete="email" /></div>
           <div><label for="auth-login-password">Password</label><input id="auth-login-password" name="password" type="password" required autocomplete="current-password" /></div>
@@ -657,6 +661,8 @@ function openAuthModal(defaultTab) {
                 el.querySelectorAll('input').forEach((input) => { input.disabled = !active; });
             }
         });
+        const googleBlock = overlay.querySelector('[data-google-item]');
+        if (googleBlock && !googleBlock.hidden) googleBlock.hidden = (panel === 'forgot');
         overlay.querySelectorAll('[data-auth-tab]').forEach((tab) => {
             tab.classList.toggle('active', tab.getAttribute('data-auth-tab') === panel);
             tab.setAttribute('aria-selected', String(tab.getAttribute('data-auth-tab') === panel));
@@ -721,8 +727,90 @@ function openAuthModal(defaultTab) {
     });
 
     switchPanel(defaultTab === 'signup' ? 'signup' : 'login');
+    renderGoogleSection(overlay);
     const firstInput = overlay.querySelector(`[data-auth-panel="${defaultTab === 'signup' ? 'signup' : 'login'}"] input`);
     if (firstInput && firstInput.focus) firstInput.focus();
+}
+
+/* ---------------- Google sign-in (GSI) ---------------- */
+
+let wnGoogleClientId = '';
+let wnGoogleInit = null;
+
+function ensureGoogleScriptLoaded() {
+    if (window.google && window.google.accounts) return Promise.resolve();
+    return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://accounts.google.com/gsi/client';
+        script.async = true;
+        script.defer = true;
+        script.onload = resolve;
+        script.onerror = () => reject(new Error('Could not load Google sign-in.'));
+        document.body.appendChild(script);
+    });
+}
+
+function initGoogleClient() {
+    if (wnGoogleInit) return wnGoogleInit;
+    wnGoogleInit = (async () => {
+        try {
+            const config = await api('/api/auth/config');
+            wnGoogleClientId = config.googleClientId || '';
+        } catch (_error) {
+            wnGoogleClientId = '';
+        }
+        if (!wnGoogleClientId) return;
+        await ensureGoogleScriptLoaded();
+        window.google.accounts.id.initialize({
+            client_id: wnGoogleClientId,
+            callback: (response) => handleGoogleCredential(response.credential),
+            auto_select: false,
+            cancel_on_tap_outside: true
+        });
+    })();
+    return wnGoogleInit;
+}
+
+async function handleGoogleCredential(credential) {
+    if (!credential) return;
+    try {
+        const data = await api('/api/auth/google', { method: 'POST', body: JSON.stringify({ credential }) });
+        if (data.role && data.role !== 'client') {
+            showToast('This email belongs to a WorldNet staff account — sign in through the team portal instead.');
+            return;
+        }
+        if (data.client) wnClient = data.client;
+        closeAuthModal();
+        await refreshClientSession();
+        const message = data.created
+            ? 'Account created with Google — welcome!'
+            : (data.linked ? 'Existing account linked to Google. Signed in.' : 'Signed in with Google.');
+        showToast(message);
+        if (pendingConsultationSubmit) {
+            pendingConsultationSubmit = false;
+            submitConsultationForm();
+        }
+        if (window.location.pathname === '/client.html' && typeof renderClientDashboard === 'function') {
+            renderClientDashboard();
+        }
+    } catch (error) {
+        showToast(error.message);
+    }
+}
+
+async function renderGoogleSection(overlay) {
+    const block = overlay.querySelector('[data-google-item]');
+    const container = overlay.querySelector('[data-google-signin]');
+    if (!block || !container) return;
+    await initGoogleClient();
+    if (!wnGoogleClientId) return;
+    block.hidden = false;
+    try {
+        const width = Math.min(Math.max(container.clientWidth || 340, 280), 360);
+        window.google.accounts.id.renderButton(container, {
+            type: 'standard', shape: 'pill', theme: 'outline', text: 'continue_with', size: 'large', width
+        });
+    } catch (_error) { /* swallowed: button render options differ by GSI version */ }
 }
 
 function closeAuthModal() {

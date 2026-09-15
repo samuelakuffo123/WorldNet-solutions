@@ -95,11 +95,16 @@ async function renderClientDashboard() {
         </section>
 
         <section class="card" style="padding:1.5rem">
-            <h2>Change password</h2>
+            <h2>Connected accounts</h2>
+            <div id="client-connected"></div>
+        </section>
+
+        <section class="card" style="padding:1.5rem">
+            <h2>${wnClient.hasPassword ? 'Change password' : 'Set a password'}</h2>
             <form id="client-password-form" class="form-grid" novalidate>
-                <div><label for="pw-current">Current password</label><input id="pw-current" name="currentPassword" type="password" required autocomplete="current-password" /></div>
-                <div><label for="pw-new">New password (8+ characters)</label><input id="pw-new" name="newPassword" type="password" required minlength="8" autocomplete="new-password" /></div>
-                <button class="btn btn-secondary" type="submit">Update password</button>
+                ${wnClient.hasPassword ? '<div><label for="pw-current">Current password</label><input id="pw-current" name="currentPassword" type="password" required autocomplete="current-password" /></div>' : ''}
+                <div><label for="pw-new">${wnClient.hasPassword ? 'New password (8+ characters)' : 'Password (8+ characters)'}</label><input id="pw-new" name="newPassword" type="password" required minlength="8" autocomplete="new-password" /></div>
+                <button class="btn btn-secondary" type="submit">${wnClient.hasPassword ? 'Update password' : 'Set password'}</button>
                 <p data-form-status class="muted" aria-live="polite"></p>
             </form>
         </section>
@@ -132,10 +137,16 @@ async function renderClientDashboard() {
         passwordForm.addEventListener('submit', async (event) => {
             event.preventDefault();
             const status = passwordForm.querySelector('[data-form-status]');
-            setFormStatus(passwordForm, 'Updating…', '');
+            setFormStatus(passwordForm, 'Saving…', '');
             try {
                 const body = Object.fromEntries(new FormData(passwordForm).entries());
                 await api('/api/auth/password', { method: 'POST', body: JSON.stringify(body) });
+                if (!body.currentPassword) {
+                    wnClient.hasPassword = true;
+                    showToast('Password set. You can now sign in with email and password too.');
+                    renderClientDashboard();
+                    return;
+                }
                 passwordForm.reset();
                 showToast('Password updated.');
                 setFormStatus(passwordForm, 'Password updated.', 'success');
@@ -145,6 +156,8 @@ async function renderClientDashboard() {
         });
     }
 
+    renderConnectedAccounts(document.getElementById('client-connected'));
+
     const logoutButton = dash.querySelector('[data-client-logout]');
     if (logoutButton) {
         logoutButton.addEventListener('click', async () => {
@@ -153,6 +166,59 @@ async function renderClientDashboard() {
             } catch (_error) { /* ignore */ }
             window.location.reload();
         });
+    }
+}
+
+async function renderConnectedAccounts(container) {
+    if (!container) return;
+    const linked = Boolean(wnClient && wnClient.googleId);
+    if (linked) {
+        container.innerHTML = `
+            <div class="connected-row">
+                <div class="connected-info">
+                    <strong>Google</strong>
+                    <p class="muted" style="margin:0">${escapeHtml(wnClient.email)} — verified by Google</p>
+                </div>
+                ${wnClient.hasPassword
+                    ? '<button type="button" class="btn btn-secondary btn-sm" data-google-disconnect>Disconnect</button>'
+                    : '<p class="muted" style="margin:0">Connected via Google. Set a password first to disconnect safely.</p>'}
+            </div>`;
+        const disconnect = container.querySelector('[data-google-disconnect]');
+        if (disconnect) {
+            disconnect.addEventListener('click', async () => {
+                if (!window.confirm('Disconnect Google from this account? You can still sign in with your email and password.')) return;
+                try {
+                    const data = await api('/api/auth/google/disconnect', { method: 'POST' });
+                    wnClient = data.client;
+                    await refreshClientSession();
+                    showToast('Google disconnected. You can sign in with your email and password.');
+                    renderClientDashboard();
+                } catch (error) {
+                    showToast(error.message);
+                }
+            });
+        }
+        return;
+    }
+
+    container.innerHTML = `
+        <div class="connected-row">
+            <div class="connected-info">
+                <strong>Google</strong>
+                <p class="muted" style="margin:0">Not connected — link it to sign in with one click.</p>
+            </div>
+            <span id="google-connect-slot"></span>
+        </div>`;
+    const slot = container.querySelector('#google-connect-slot');
+    await initGoogleClient();
+    if (!wnGoogleClientId) {
+        if (slot) slot.innerHTML = '<span class="muted">Google sign-in is not enabled on this server yet.</span>';
+        return;
+    }
+    try {
+        window.google.accounts.id.renderButton(slot, { type: 'standard', shape: 'pill', theme: 'outline', text: 'continue_with', size: 'large' });
+    } catch (_error) {
+        if (slot) slot.innerHTML = '<span class="muted">Google sign-in unavailable.</span>';
     }
 }
 

@@ -1957,3 +1957,48 @@ header.scrolled {
 body.modal-open {
     overflow: hidden;
 }
+
+.auth-google-block {
+    margin-bottom: 0.25rem;
+}
+
+.auth-google-block .g_id_signin,
+.auth-google-block iframe {
+    margin: 0 auto;
+}
+
+.auth-or {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: var(--muted);
+    font-size: 0.8rem;
+    margin: 0.9rem 0;
+}
+
+.auth-or::before,
+.auth-or::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border, #e5e7eb);
+}
+
+.connected-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.9rem;
+    flex-wrap: wrap;
+    padding: 0.65rem 0;
+}
+
+.connected-info strong {
+    display: block;
+    margin-bottom: 0.1rem;
+}
+
+.btn-sm {
+    padding: 0.4rem 0.85rem;
+    font-size: 0.85rem;
+}

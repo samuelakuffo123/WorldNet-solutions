@@ -433,6 +433,20 @@ maintenance after the freeze. New chronological entries:
 | **Reviewed By** | Samuel Akuffo |
 | **Confidence Level** | High - verified by the full suite and syntax checks |
 
+### [September 15, 2026] - Google Account Verification (OAuth) — "Sign in with Google"
+
+| Detail | Information |
+|--------|-------------|
+| **Date** | September 15, 2026 |
+| **Tool Used** | OpenCode (AI coding agent) |
+| **Purpose** | Add "Sign in with Google" as an additive login option (per the team's Google Account Verification spec): verified-email signup, one-click returning login, account linking instead of duplication, safe disconnect rules |
+| **Task** | Extended the existing Google Identity Services (GSI) + `tokeninfo` pattern to client accounts: `users.google_id`/`profile_photo` columns; `/api/auth/google` now creates a verified client (`email_verified=true`, no password) or links an existing email/password account; `POST /api/auth/google/disconnect` (blocked unless a password exists); `/api/auth/password` supports setting a first password for Google-only users; "Continue with Google" button + "or" divider in the public auth modal; Connected accounts section on the client dashboard/profile page |
+| **Output** | Backend (`src/server.js`, `src/database.js`, `src/security.js`), frontend (`src/public/js/app.js`, `src/public/js/client.js`, `src/public/css/styles.css`), tests (`tests/google.test.js` new with a stubbed `tokeninfo` endpoint) |
+| **Human changes** | Feature spec from the team; review of scope; commit approval |
+| **Verification** | `npm run verify` — 42/42 tests pass (7 new Google-flow tests: create+consult, link-no-duplicate, password-lockout+blocked disconnect, set-password-then-disconnect, email-mismatch-new-account, wrong-aud reject, unconfigured 503); `node --check` clean |
+| **Reviewed By** | Samuel Akuffo |
+| **Confidence Level** | High - verified by the full suite and syntax checks |
+
 ### [September 15, 2026] - Guest Mode & Consultation Request feature
 
 | Detail | Information |
