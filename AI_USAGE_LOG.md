@@ -433,6 +433,20 @@ maintenance after the freeze. New chronological entries:
 | **Reviewed By** | Samuel Akuffo |
 | **Confidence Level** | High - verified by the full suite and syntax checks |
 
+### [September 15, 2026] - Public page fixes: remove team portal link + auth modal stacking bug
+
+| Detail | Information |
+|--------|-------------|
+| **Date** | September 15, 2026 |
+| **Tool Used** | OpenCode (AI coding agent) |
+| **Purpose** | Fix reported issues on the deployed public pages: (1) the "Team portal" link should not appear on the public-facing navigation; (2) the Log in / Sign up forms rendered stacked on the same sheet instead of switching tabs; (3) explain why the "Continue with Google" button was missing |
+| **Task** | Removed the `Team portal` nav item from all 11 public pages (`index`, `about`, `services`, `contact`, `portfolio`, `portfolio-details`, `service-details`, `team`, `consultation`, `client`, `sla`); fixed the root cause of the stacked forms — `.auth-form { display: flex }` overrode the browser's `[hidden]` rule, so the signup form (meant to be hidden behind the "Sign up" tab) was always visible; added a global `[hidden] { display: none !important }` rule. Confirmed the Google button is intentionally gated on the server exposing `GOOGLE_CLIENT_ID` (app.js `renderGoogleSection`), so it needs a real OAuth Client ID in the deployed env to appear |
+| **Output** | Edited `src/public/*.html` (11 files), `src/public/css/styles.css`; no backend changes |
+| **Human changes** | Issue report from deployment review; env (`GOOGLE_CLIENT_ID`) setup remains a human step |
+| **Verification** | `npm run verify` — 42/42 tests pass (JS unchanged); grep confirms zero remaining `Team portal` nav links |
+| **Reviewed By** | Samuel Akuffo |
+| **Confidence Level** | High |
+
 ### [September 15, 2026] - Google Account Verification (OAuth) — "Sign in with Google"
 
 | Detail | Information |

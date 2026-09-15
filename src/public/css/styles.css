@@ -1795,6 +1795,10 @@ header.scrolled {
     gap: 0.9rem;
 }
 
+[hidden] {
+    display: none !important;
+}
+
 .auth-form .grid-2 {
     display: grid;
     grid-template-columns: 1fr 1fr;
