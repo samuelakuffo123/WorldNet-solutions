@@ -433,6 +433,20 @@ maintenance after the freeze. New chronological entries:
 | **Reviewed By** | Samuel Akuffo |
 | **Confidence Level** | High - verified by the full suite and syntax checks |
 
+### [September 15, 2026] - Guest Mode spec revision: quiet "Sign in" nav link replaces the guest pill
+
+| Detail | Information |
+|--------|-------------|
+| **Date** | September 15, 2026 |
+| **Tool Used** | OpenCode (AI coding agent) |
+| **Purpose** | Implement revision 2 of the Guest Mode spec (§3.1 / §4.1): the logged-out nav state should be a quiet plain "Sign in" text link, not a "Browsing as Guest" pill; when authenticated it becomes the client's name (+ Google avatar if present) linking to the dashboard |
+| **Task** | Rewrote `renderClientPill()` to render a plain `.nav-sign-in-link` anchor (logged-out "Sign in" opens the auth modal; logged-in shows first name + avatar linking to `/client.html`); added quiet-link styling (no background/border/hover-box-shadow, so it does not compete with the "Book consultation" CTA) and `.nav-avatar` round thumb; removed the pill markup from the nav |
+| **Output** | `src/public/js/app.js` (`renderClientPill`), `src/public/css/styles.css` (`.nav-sign-in-link`, `.nav-avatar`) |
+| **Human changes** | Revised spec (nav change) |
+| **Verification** | `npm run verify` — 42/42 tests pass; syntax check clean (JS only change) |
+| **Reviewed By** | Samuel Akuffo |
+| **Confidence Level** | High |
+
 ### [September 15, 2026] - Public page fixes: remove team portal link + auth modal stacking bug
 
 | Detail | Information |

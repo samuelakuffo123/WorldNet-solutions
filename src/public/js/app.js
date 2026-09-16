@@ -577,28 +577,22 @@ function renderClientPill() {
     if (!nav) return;
     const existing = document.getElementById('wn-client-pill');
     if (existing) existing.remove();
-    const pill = document.createElement('div');
-    pill.id = 'wn-client-pill';
-    pill.setAttribute('style', 'display:inline-flex; align-items:center');
+    const link = document.createElement('a');
+    link.id = 'wn-client-pill';
     if (wnClient) {
-        pill.innerHTML = `
-            <button type="button" class="guest-pill" data-open-dashboard aria-label="Open your requests">
-              <span class="guest-pill-dot" aria-hidden="true"></span> Hi, ${escapeHtml((wnClient.fullName || wnClient.email).split(' ')[0])} · Dashboard
-            </button>`;
-        pill.querySelector('[data-open-dashboard]').addEventListener('click', () => {
-            window.location.href = '/client.html';
-        });
+        link.className = 'nav-sign-in-link';
+        link.href = '/client.html';
+        link.title = 'Open your dashboard';
+        const firstName = escapeHtml((wnClient.fullName || wnClient.email).split(' ')[0]);
+        const avatar = wnClient.profilePhoto ? `<img class="nav-avatar" src="${escapeHtml(wnClient.profilePhoto)}" alt="" /> ` : '';
+        link.innerHTML = `${avatar}${firstName}`;
     } else {
-        pill.innerHTML = `
-            <button type="button" class="guest-pill" data-sign-in-any>
-              Browsing as Guest · <strong>Sign in</strong>
-            </button>`;
-        pill.querySelector('[data-sign-in-any]').addEventListener('click', (event) => {
-            event.preventDefault();
-            openAuthModal('login');
-        });
+        link.className = 'nav-sign-in-link';
+        link.href = '#';
+        link.setAttribute('data-sign-in-any', '');
+        link.textContent = 'Sign in';
     }
-    nav.appendChild(pill);
+    nav.appendChild(link);
 }
 
 function openAuthModal(defaultTab) {

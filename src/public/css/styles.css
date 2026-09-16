@@ -134,6 +134,32 @@ nav {
     box-shadow: 0 12px 30px rgba(37, 99, 235, 0.12);
 }
 
+.nav-sign-in-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-weight: 500;
+    padding: 0.55rem 0.6rem;
+    border-radius: 999px;
+    text-decoration: none;
+}
+
+.nav-sign-in-link:hover,
+.nav-sign-in-link:focus-visible,
+.nav-sign-in-link.active {
+    background: transparent;
+    color: var(--blue);
+    transform: none;
+    box-shadow: none;
+}
+
+.nav-avatar {
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 999px;
+    object-fit: cover;
+}
+
 .nav-dropdown {
     position: relative;
 }
