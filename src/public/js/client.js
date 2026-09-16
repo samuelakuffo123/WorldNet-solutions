@@ -27,6 +27,7 @@ async function renderClientDashboard() {
     const gate = document.getElementById('client-gate');
     const dash = document.getElementById('client-dashboard');
     if (!dash) return;
+    if (typeof whenClientSessionReady === 'function') await whenClientSessionReady();
     if (!wnClient) {
         if (gate) gate.hidden = false;
         dash.hidden = true;

@@ -433,6 +433,34 @@ maintenance after the freeze. New chronological entries:
 | **Reviewed By** | Samuel Akuffo |
 | **Confidence Level** | High - verified by the full suite and syntax checks |
 
+### [September 16, 2026] - Dashboard shows "Sign in" while nav shows the logged-in name
+
+| Detail | Information |
+|--------|-------------|
+| **Date** | September 16, 2026 |
+| **Tool Used** | OpenCode (AI coding agent) |
+| **Purpose** | Fix `client.html` showing the "Sign in to see your consultation requests." gate while the nav correctly renders the logged-in client's name — two code paths disagreeing about login state |
+| **Task** | Root cause was a race, not cookies: on `DOMContentLoaded`, `app.js` fires `refreshClientSession()` (async `/api/me`) without awaiting, while `client.js`'s `renderClientDashboard()` runs immediately, sees `wnClient` still null, shows the gate, and returns. When `/api/me` resolved a moment later, `wnClient` was set and the nav pill painted the name — but the dashboard never re-rendered. Fix: app.js now exposes `whenClientSessionReady()` (a promise resolved once the first `/api/me` round-trip completes); `renderClientDashboard()` awaits it before deciding gate vs dashboard. The consultation form's "Requesting as" identity had the same race and now re-renders via the same promise. (Same-origin fetch already sends cookies, so `credentials` was never the problem.) |
+| **Output** | `src/public/js/app.js` (`clientSessionReady`, `whenClientSessionReady`, `refreshClientSession`, `setupConsultationForm`), `src/public/js/client.js` (`renderClientDashboard`) |
+| **Human changes** | Bug report + fix spec (Network-tab diagnosis; distinguish 401 from other errors) |
+| **Verification** | `npm run verify` — 42/42 tests pass |
+| **Reviewed By** | Samuel Akuffo |
+| **Confidence Level** | High |
+
+### [September 16, 2026] - Admin bootstrap security + conditional form rendering
+
+| Detail | Information |
+|--------|-------------|
+| **Date** | September 16, 2026 |
+| **Tool Used** | OpenCode (AI coding agent) |
+| **Purpose** | Fix (1) the admin login page showing no form (and previously both) based on stale assumptions instead of real state, and (2) anyone being able to claim the first admin slot because `/api/admin/first-setup` had no access control |
+| **Task** | Frontend: `wireFirstSetup()` now branches on `/api/auth/config.needsSetup` in both directions — renders exactly one form (login OR first-setup), never both/neither, and falls back to the login form if config fails. `login.html` gains a required Setup token field, and the setup form shows a warning when `/api/auth/config.setupTokenConfigured` is false. Backend: `/api/admin/first-setup` now (a) returns 403 permanently once an admin exists (was 409), (b) rejects 403 on a missing/wrong `setupToken` vs `process.env.ADMIN_SETUP_TOKEN`, and (c) fail-closes with 500 if the server has no `ADMIN_SETUP_TOKEN` configured. `/api/auth/config` reports `setupTokenConfigured`. New env var documented in `.env.example` and `render.yaml`; tests updated (wrong-token rejection, 403 instead of 409, token passed in all setup calls) |
+| **Output** | `src/server.js` (`/api/auth/config`, `/api/admin/first-setup`), `src/public/admin/login.html`, `src/public/js/admin.js`, `src/.env.example`, `render.yaml`, `tests/first-setup.test.js`, `tests/history.test.js`, `tests/api.test.js` |
+| **Human changes** | Bug report + fix spec (state check plus setup-token gate) |
+| **Verification** | `npm run verify` — 42/42 tests pass |
+| **Reviewed By** | Samuel Akuffo |
+| **Confidence Level** | High |
+
 ### [September 16, 2026] - "Sending reset link..." hang fix + SMTP boot diagnostics
 
 | Detail | Information |

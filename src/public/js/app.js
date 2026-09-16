@@ -535,6 +535,8 @@ function setMinConsultationDate() {
 let wnClient = null;
 let authModalOpen = false;
 let pendingConsultationSubmit = false;
+let clientSessionResolve;
+const clientSessionReady = new Promise((resolve) => { clientSessionResolve = resolve; });
 
 const CLIENT_STATUS_LABELS = {
     pending: 'Pending Review',
@@ -557,6 +559,10 @@ function currentClient() {
     return wnClient;
 }
 
+function whenClientSessionReady() {
+    return clientSessionReady;
+}
+
 async function refreshClientSession() {
     try {
         const data = await api('/api/me');
@@ -568,6 +574,7 @@ async function refreshClientSession() {
     } catch (_error) {
         wnClient = null;
     }
+    clientSessionResolve();
     renderClientPill();
     return wnClient;
 }
@@ -848,7 +855,7 @@ async function setupConsultationForm() {
         } catch (_error) { /* services stay empty; user can type */ }
     }
 
-    renderConsultationIdentity();
+    whenClientSessionReady().then(renderConsultationIdentity);
     form.addEventListener('submit', (event) => {
         event.preventDefault();
         clearFieldErrors(form);
