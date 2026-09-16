@@ -470,12 +470,8 @@ function initStatusHistory(item, by) {
     };
 }
 
-async function sendEmail({ to, subject, text, html }) {
-    if (!process.env.SMTP_HOST) {
-        console.log(`[email] skipped -> ${subject}`);
-        return { ok: true, skipped: true };
-    }
-    const transporter = nodemailer.createTransport({
+function createTransporter() {
+    return nodemailer.createTransport({
         host: process.env.SMTP_HOST,
         port: Number(process.env.SMTP_PORT || 587),
         secure: String(process.env.SMTP_PORT || '') === '465',
@@ -484,8 +480,15 @@ async function sendEmail({ to, subject, text, html }) {
             pass: process.env.SMTP_PASS
         }
     });
+}
+
+async function sendEmail({ to, subject, text, html }) {
+    if (!process.env.SMTP_HOST) {
+        console.log(`[email] skipped -> ${subject}`);
+        return { ok: true, skipped: true };
+    }
     try {
-        await transporter.sendMail({ from: process.env.SMTP_FROM || 'no-reply@worldnetict.com', to, subject, text, html });
+        await createTransporter().sendMail({ from: process.env.SMTP_FROM || 'no-reply@worldnetict.com', to, subject, text, html });
         return { ok: true };
     } catch (error) {
         console.error(`[email] failed -> ${subject}`, error.message);
@@ -1526,33 +1529,38 @@ app.put('/api/profile', authRequired, async (req, res) => {
 });
 
 app.post('/api/forgot-password', authLimiter, async (req, res) => {
-    const { email } = req.body;
-    const normalizedEmail = String(email || '').trim().toLowerCase();
-    const account = state.admins.find((item) => item.email.toLowerCase() === normalizedEmail)
-        || state.users.find((item) => item.email === normalizedEmail);
-    if (!account) return res.json({ ok: true, message: 'If an account exists for this email, a reset link has been sent.' });
+    try {
+        const { email } = req.body;
+        const normalizedEmail = String(email || '').trim().toLowerCase();
+        const account = state.admins.find((item) => item.email.toLowerCase() === normalizedEmail)
+            || state.users.find((item) => item.email === normalizedEmail);
+        if (!account) return res.json({ ok: true, message: 'If an account exists for this email, a reset link has been sent.' });
 
-    const isAdmin = state.admins.some((item) => item === account);
-    const token = makeResetToken();
-    account.resetTokenHash = sha256(token);
-    account.resetTokenExpires = Date.now() + 60 * 60 * 1000;
-    await saveState();
+        const isAdmin = state.admins.some((item) => item === account);
+        const token = makeResetToken();
+        account.resetTokenHash = sha256(token);
+        account.resetTokenExpires = Date.now() + 60 * 60 * 1000;
+        await saveState();
 
-    const resetUrl = `${process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get('host')}`}/${isAdmin ? 'admin/reset-password.html' : 'reset-password.html'}?token=${token}`;
-    const emailResult = await sendEmail({
-        to: account.email,
-        subject: `${state.settings.companyName} — Reset your password`,
-        text: `Hi ${account.name || account.fullName},\n\nClick this link to reset your password (valid for 1 hour):\n${resetUrl}\n\nIf you did not request this, you can ignore this email.`,
-        html: `<p>Hi ${escapeHtml(account.name || account.fullName)},</p><p>Click the button below to reset your password. The link expires in 1 hour.</p><p style="margin:1.2rem 0"><a href="${resetUrl}" style="background:#2563eb;color:#fff;padding:0.7rem 1.2rem;border-radius:0.6rem;text-decoration:none;font-weight:600">Reset password</a></p><p>If you did not request this, you can safely ignore this email.</p>`
-    });
+        const resetUrl = `${process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get('host')}`}/${isAdmin ? 'admin/reset-password.html' : 'reset-password.html'}?token=${token}`;
+        const emailResult = await sendEmail({
+            to: account.email,
+            subject: `${state.settings.companyName} — Reset your password`,
+            text: `Hi ${account.name || account.fullName},\n\nClick this link to reset your password (valid for 1 hour):\n${resetUrl}\n\nIf you did not request this, you can ignore this email.`,
+            html: `<p>Hi ${escapeHtml(account.name || account.fullName)},</p><p>Click the button below to reset your password. The link expires in 1 hour.</p><p style="margin:1.2rem 0"><a href="${resetUrl}" style="background:#2563eb;color:#fff;padding:0.7rem 1.2rem;border-radius:0.6rem;text-decoration:none;font-weight:600">Reset password</a></p><p>If you did not request this, you can safely ignore this email.</p>`
+        });
 
-    if (process.env.NODE_ENV !== 'production') {
-        console.log(`[dev] Password reset link for ${account.email}: ${resetUrl}`);
+        if (process.env.NODE_ENV !== 'production') {
+            console.log(`[dev] Password reset link for ${account.email}: ${resetUrl}`);
+        }
+
+        const response = { ok: true, message: 'If an account exists for this email, a reset link has been sent.' };
+        if (emailResult && emailResult.skipped && process.env.NODE_ENV !== 'production') response.devResetLink = resetUrl;
+        res.json(response);
+    } catch (error) {
+        console.error('Forgot-password flow failed:', error);
+        res.status(500).json({ error: 'Something went wrong. Please try again.' });
     }
-
-    const response = { ok: true, message: 'If an account exists for this email, a reset link has been sent.' };
-    if (emailResult && emailResult.skipped && process.env.NODE_ENV !== 'production') response.devResetLink = resetUrl;
-    res.json(response);
 });
 
 app.post('/api/reset-password', authLimiter, async (req, res) => {
@@ -1704,6 +1712,14 @@ app.get('*', (_req, res) => {
 
 async function startServer(port = config.port) {
     await loadState();
+    if (process.env.SMTP_HOST) {
+        createTransporter().verify((error) => {
+            if (error) logger.error('Mail transporter failed to connect', { error: error.message });
+            else logger.info('Mail transporter ready');
+        });
+    } else {
+        logger.warn('SMTP not configured — password reset / notification emails will be skipped');
+    }
     return app.listen(port, () => logger.info(`WorldNet server running on http://localhost:${port}`));
 }
 

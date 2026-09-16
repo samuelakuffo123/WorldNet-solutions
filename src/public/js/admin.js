@@ -2530,7 +2530,8 @@ function wireForgotPassword() {
             const res = await fetch('/api/forgot-password', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(payload),
+                signal: AbortSignal.timeout(10000)
             });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(data.error || 'Something went wrong');
@@ -2543,7 +2544,7 @@ function wireForgotPassword() {
             forgotForm.reset();
         } catch (error) {
             if (button) { button.disabled = false; button.textContent = 'Send reset link'; }
-            showToast(error.message);
+            showToast(error.name === 'AbortError' ? 'Request timed out — please try again.' : error.message);
         }
     });
 }

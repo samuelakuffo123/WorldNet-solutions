@@ -433,6 +433,20 @@ maintenance after the freeze. New chronological entries:
 | **Reviewed By** | Samuel Akuffo |
 | **Confidence Level** | High - verified by the full suite and syntax checks |
 
+### [September 16, 2026] - "Sending reset link..." hang fix + SMTP boot diagnostics
+
+| Detail | Information |
+|--------|-------------|
+| **Date** | September 16, 2026 |
+| **Tool Used** | OpenCode (AI coding agent) |
+| **Purpose** | Stop the forgot-password flow from hanging forever and make email-send failures loud instead of silent |
+| **Task** | (a) Frontend: both forgot-password forms (client modal in app.js, admin forgot-password page) now pass `AbortSignal.timeout(10000)` so a hung backend resolves to an error state within 10s ("Request timed out — please try again.") instead of sticking on "Sending reset link…"; (b) Backend: the `/api/forgot-password` handler is wrapped in try/catch that logs the real reason and returns 500 + generic message instead of leaving the connection open; (c) `createTransporter()` extracted and reused; `startServer()` now runs `transporter.verify()` at boot — logs "Mail transporter ready" or a connect error, or warns "SMTP not configured" so bad credentials fail at deploy, not when a client tries it |
+| **Output** | `src/server.js` (`createTransporter`, `sendEmail`, `startServer`, `/api/forgot-password`), `src/public/js/app.js`, `src/public/js/admin.js` |
+| **Human changes** | Bug report + fix spec (checklist: app password, env load, transporter verify, spam folder) |
+| **Verification** | `npm run verify` — 42/42 tests pass |
+| **Reviewed By** | Samuel Akuffo |
+| **Confidence Level** | High |
+
 ### [September 15, 2026] - Auth modal overflow + password reset delivery
 
 | Detail | Information |

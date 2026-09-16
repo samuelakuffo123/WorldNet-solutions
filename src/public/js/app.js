@@ -714,11 +714,12 @@ function openAuthModal(defaultTab) {
         try {
             const data = await api('/api/forgot-password', {
                 method: 'POST',
-                body: JSON.stringify({ email: form.email.value })
+                body: JSON.stringify({ email: form.email.value }),
+                signal: AbortSignal.timeout(10000)
             });
             setFormStatus(form, data.message || 'If an account exists for this email, a reset link has been sent.', 'success');
         } catch (error) {
-            setFormStatus(form, error.message, 'error');
+            setFormStatus(form, error.name === 'AbortError' ? 'Request timed out — please try again.' : error.message, 'error');
         }
     });
 
