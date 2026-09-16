@@ -8,6 +8,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 process.env.NODE_ENV = 'test';
 process.env.DATABASE_URL = 'pg-mem://worldnet-test';
 process.env.SEED_DEMO_DATA = 'false';
+process.env.ADMIN_SETUP_TOKEN = 'test-setup-token';
 process.env.UPLOAD_DIR = path.join(tmpdir(), `worldnet-uploads-firstsetup-${Date.now()}`);
 
 const __filename = fileURLToPath(import.meta.url);
@@ -60,23 +61,30 @@ test('a fresh database with seeds disabled uses the first-run setup to create th
         const weak = await fetch(`${baseUrl}/api/admin/first-setup`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: 'Founder', email: 'founder@worldnetict.com', password: 'short' })
+            body: JSON.stringify({ name: 'Founder', email: 'founder@worldnetict.com', password: 'short', setupToken: 'test-setup-token' })
         });
         assert.equal(weak.status, 400, 'weak setup passwords are rejected');
+
+        const badToken = await fetch(`${baseUrl}/api/admin/first-setup`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: 'Rogue Admin', email: 'rogue@example.com', password: 'A-v3ry-S3cure-Pass', setupToken: 'wrong-token' })
+        });
+        assert.equal(badToken.status, 403, 'a wrong setup token cannot claim the admin slot');
 
         const created = await fetch(`${baseUrl}/api/admin/first-setup`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: 'Founder Admin', email: 'founder@worldnetict.com', password: 'A-v3ry-S3cure-Pass' })
+            body: JSON.stringify({ name: 'Founder Admin', email: 'founder@worldnetict.com', password: 'A-v3ry-S3cure-Pass', setupToken: 'test-setup-token' })
         });
         assert.equal(created.status, 201);
 
         const second = await fetch(`${baseUrl}/api/admin/first-setup`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: 'Imposter', email: 'imposter@example.com', password: 'A-v3ry-S3cure-Pass' })
+            body: JSON.stringify({ name: 'Imposter', email: 'imposter@example.com', password: 'A-v3ry-S3cure-Pass', setupToken: 'test-setup-token' })
         });
-        assert.equal(second.status, 409, 'setup can only run once');
+        assert.equal(second.status, 403, 'setup closes permanently after the first admin exists');
 
         const configAfter = await (await fetch(`${baseUrl}/api/auth/config`)).json();
         assert.equal(configAfter.needsSetup, false);

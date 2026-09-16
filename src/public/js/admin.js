@@ -2700,14 +2700,28 @@ function wireFirstSetup() {
     fetch('/api/auth/config')
         .then((res) => res.json().catch(() => ({})))
         .then((data) => {
-            if (!data.needsSetup) return;
+            if (!data.needsSetup) {
+                if (loginForm) loginForm.hidden = false;
+                if (setupForm) setupForm.hidden = true;
+                if (forgotLink) forgotLink.hidden = false;
+                return;
+            }
             if (loginForm) loginForm.hidden = true;
             if (forgotLink) forgotLink.hidden = true;
             document.querySelector('.login-card h1').textContent = 'Set up your console';
             document.querySelector('.login-card > .login-sub').textContent = 'Create the administrator account to unlock the team console.';
+            if (!data.setupTokenConfigured) {
+                const missing = document.createElement('p');
+                missing.className = 'login-sub';
+                missing.style.color = '#dc2626';
+                missing.textContent = 'Server has no setup token configured — the account cannot be created yet.';
+                setupForm.prepend(missing);
+            }
             setupForm.hidden = false;
         })
-        .catch(() => { });
+        .catch(() => {
+            if (loginForm) loginForm.hidden = false;
+        });
 
     setupForm.addEventListener('submit', async (event) => {
         event.preventDefault();

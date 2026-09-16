@@ -8,6 +8,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 process.env.NODE_ENV = 'test';
 process.env.DATABASE_URL = 'pg-mem://worldnet-test';
 process.env.SEED_DEMO_DATA = 'false';
+process.env.ADMIN_SETUP_TOKEN = 'test-setup-token';
 process.env.UPLOAD_DIR = path.join(tmpdir(), `worldnet-uploads-history-${Date.now()}`);
 
 const __filename = fileURLToPath(import.meta.url);
@@ -46,7 +47,7 @@ test('status changes are recorded in each entity status history', async () => {
     try {
         await jsonFetch(`${baseUrl}/api/admin/first-setup`, {
             method: 'POST',
-            body: JSON.stringify({ name: 'Founder Deep', email: 'founder@worldnetict.com', password: 'A-v3ry-S3cure-Pass' })
+            body: JSON.stringify({ name: 'Founder Deep', email: 'founder@worldnetict.com', password: 'A-v3ry-S3cure-Pass', setupToken: 'test-setup-token' })
         });
 
         const login = await jsonFetch(`${baseUrl}/api/login`, {
@@ -138,7 +139,7 @@ test('report drafts stay quiet until submitted and can be edited', async () => {
     try {
         await jsonFetch(`${baseUrl}/api/admin/first-setup`, {
             method: 'POST',
-            body: JSON.stringify({ name: 'Founder Deep', email: 'founder@worldnetict.com', password: 'A-v3ry-S3cure-Pass' })
+            body: JSON.stringify({ name: 'Founder Deep', email: 'founder@worldnetict.com', password: 'A-v3ry-S3cure-Pass', setupToken: 'test-setup-token' })
         });
         const login = await jsonFetch(`${baseUrl}/api/login`, {
             method: 'POST',

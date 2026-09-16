@@ -4,6 +4,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 
 process.env.NODE_ENV = 'test';
 process.env.DATABASE_URL = 'pg-mem://worldnet-test';
+process.env.ADMIN_SETUP_TOKEN = 'test-setup-token';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';

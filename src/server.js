@@ -1127,29 +1127,42 @@ app.get('/api/admin/status', (_req, res) => {
 });
 
 app.post('/api/admin/first-setup', authLimiter, async (req, res) => {
-    if (state.admins.length > 0) {
-        return res.status(409).json({ error: 'The administrative account has already been created.' });
+    try {
+        if (state.admins.length > 0) {
+            return res.status(403).json({ error: 'Admin already exists. Setup is closed.' });
+        }
+
+        if (!process.env.ADMIN_SETUP_TOKEN) {
+            return res.status(500).json({ error: 'Setup token not configured on the server.' });
+        }
+        if (req.body.setupToken !== process.env.ADMIN_SETUP_TOKEN) {
+            return res.status(403).json({ error: 'Invalid setup token.' });
+        }
+
+        const name = sanitizeText(req.body.name);
+        const email = String(req.body.email || '').trim().toLowerCase();
+        const password = String(req.body.password || '');
+        if (!name || !email || !password) return res.status(400).json({ error: 'Name, email, and password are required.' });
+        if (!isValidEmail(email)) return res.status(400).json({ error: 'Please enter a valid email address.' });
+        if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters.' });
+        if (state.workers.some((worker) => worker.email && worker.email.toLowerCase() === email)) {
+            return res.status(409).json({ error: 'This email is already used by a team member.' });
+        }
+        const admin = {
+            id: nextSequentialId(state.admins, 'ADM'),
+            name,
+            email,
+            passwordHash: bcrypt.hashSync(password, 10),
+            role: 'admin'
+        };
+        state.admins.push(admin);
+        recordAudit('admin.first_setup', admin.name, admin.id, 'admin', admin.id, { email: admin.email });
+        await saveState();
+        res.status(201).json({ ok: true, message: 'Administrator account created. You can now sign in.' });
+    } catch (error) {
+        console.error('First-setup flow failed:', error);
+        res.status(500).json({ error: 'Something went wrong. Please try again.' });
     }
-    const name = sanitizeText(req.body.name);
-    const email = String(req.body.email || '').trim().toLowerCase();
-    const password = String(req.body.password || '');
-    if (!name || !email || !password) return res.status(400).json({ error: 'Name, email, and password are required.' });
-    if (!isValidEmail(email)) return res.status(400).json({ error: 'Please enter a valid email address.' });
-    if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters.' });
-    if (state.workers.some((worker) => worker.email && worker.email.toLowerCase() === email)) {
-        return res.status(409).json({ error: 'This email is already used by a team member.' });
-    }
-    const admin = {
-        id: nextSequentialId(state.admins, 'ADM'),
-        name,
-        email,
-        passwordHash: bcrypt.hashSync(password, 10),
-        role: 'admin'
-    };
-    state.admins.push(admin);
-    recordAudit('admin.first_setup', admin.name, admin.id, 'admin', admin.id, { email: admin.email });
-    await saveState();
-    res.status(201).json({ ok: true, message: 'Administrator account created. You can now sign in.' });
 });
 
 app.post('/api/login', loginLimiter, async (req, res) => {
@@ -1217,7 +1230,8 @@ app.get('/api/auth/config', (_req, res) => {
     res.json({
         allowRegistration: false,
         googleClientId: process.env.GOOGLE_CLIENT_ID || '',
-        needsSetup: state.admins.length === 0
+        needsSetup: state.admins.length === 0,
+        setupTokenConfigured: Boolean(process.env.ADMIN_SETUP_TOKEN)
     });
 });
 
