@@ -716,7 +716,7 @@ function openAuthModal(defaultTab) {
                 method: 'POST',
                 body: JSON.stringify({ email: form.email.value })
             });
-            setFormStatus(form, data.devResetLink ? `Development mode: ${data.devResetLink}` : (data.message || 'If an account exists for this email, a reset link has been sent.'), 'success');
+            setFormStatus(form, data.message || 'If an account exists for this email, a reset link has been sent.', 'success');
         } catch (error) {
             setFormStatus(form, error.message, 'error');
         }

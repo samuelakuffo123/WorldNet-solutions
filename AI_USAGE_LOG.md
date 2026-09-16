@@ -433,6 +433,20 @@ maintenance after the freeze. New chronological entries:
 | **Reviewed By** | Samuel Akuffo |
 | **Confidence Level** | High - verified by the full suite and syntax checks |
 
+### [September 15, 2026] - Auth modal overflow + password reset delivery
+
+| Detail | Information |
+|--------|-------------|
+| **Date** | September 15, 2026 |
+| **Tool Used** | OpenCode (AI coding agent) |
+| **Purpose** | Fix (1) auth modal horizontal scroll from an unbreakable reset-link URL, (2) the "Development mode: [link + token]" box leaking into the UI, and (3) reset links/emails never actually being delivered |
+| **Task** | The root cause of #2/#3 was one thing: no SMTP transport configured, so the backend returned the reset token directly in the API response (`devResetLink`) and the client rendered it as a "Development mode" box. Changes: (a) modal CSS now clamps width (`box-sizing:border-box`, `overflow-x:hidden`) and wraps long strings (`overflow-wrap:anywhere`) so nothing forces horizontal scroll; (b) `devResetLink` is now only included in the API response when `NODE_ENV !== 'production'`, the reset URL is logged server-side via the `[dev]` console line in non-prod, and the generic message is returned for both existing and non-existing emails; (c) both clients (app.js forgot-password status + admin forgot-password notice) no longer render any dev-mode link; (d) `sendEmail` gets `secure` for port 465 and a try/catch so a failing/broken SMTP never 500s `/api/forgot-password`. SMTP is now genuinely wired if `SMTP_HOST/USER/PASS/FROM` are set (nodemailer already installed) |
+| **Output** | `src/server.js` (`sendEmail`, `/api/forgot-password`), `src/public/js/app.js`, `src/public/js/admin.js`, `src/public/css/styles.css` (`.auth-modal`) |
+| **Human changes** | Bug report + fix spec (accepts link-based flow; OTP flow explicitly out of scope) |
+| **Verification** | `npm run verify` — 42/42 tests pass |
+| **Reviewed By** | Samuel Akuffo |
+| **Confidence Level** | High |
+
 ### [September 15, 2026] - Guest Mode spec revision: quiet "Sign in" nav link replaces the guest pill
 
 | Detail | Information |

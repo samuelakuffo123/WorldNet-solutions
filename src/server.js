@@ -478,13 +478,19 @@ async function sendEmail({ to, subject, text, html }) {
     const transporter = nodemailer.createTransport({
         host: process.env.SMTP_HOST,
         port: Number(process.env.SMTP_PORT || 587),
-        secure: false,
+        secure: String(process.env.SMTP_PORT || '') === '465',
         auth: {
             user: process.env.SMTP_USER,
             pass: process.env.SMTP_PASS
         }
     });
-    return transporter.sendMail({ from: process.env.SMTP_FROM || 'no-reply@worldnetict.com', to, subject, text, html });
+    try {
+        await transporter.sendMail({ from: process.env.SMTP_FROM || 'no-reply@worldnetict.com', to, subject, text, html });
+        return { ok: true };
+    } catch (error) {
+        console.error(`[email] failed -> ${subject}`, error.message);
+        return { ok: false, error: error.message };
+    }
 }
 
 function createNotification(type, payload, title, message) {
@@ -1540,8 +1546,12 @@ app.post('/api/forgot-password', authLimiter, async (req, res) => {
         html: `<p>Hi ${escapeHtml(account.name || account.fullName)},</p><p>Click the button below to reset your password. The link expires in 1 hour.</p><p style="margin:1.2rem 0"><a href="${resetUrl}" style="background:#2563eb;color:#fff;padding:0.7rem 1.2rem;border-radius:0.6rem;text-decoration:none;font-weight:600">Reset password</a></p><p>If you did not request this, you can safely ignore this email.</p>`
     });
 
+    if (process.env.NODE_ENV !== 'production') {
+        console.log(`[dev] Password reset link for ${account.email}: ${resetUrl}`);
+    }
+
     const response = { ok: true, message: 'If an account exists for this email, a reset link has been sent.' };
-    if (emailResult && emailResult.skipped) response.devResetLink = resetUrl;
+    if (emailResult && emailResult.skipped && process.env.NODE_ENV !== 'production') response.devResetLink = resetUrl;
     res.json(response);
 });
 

@@ -2537,7 +2537,7 @@ function wireForgotPassword() {
             const notice = document.getElementById('forgot-success');
             if (notice) {
                 notice.classList.add('show');
-                notice.innerHTML = `<p>${data.message || 'Reset link sent.'}</p>${data.devResetLink ? `<p style="margin-top:0.5rem;word-break:break-all"><a href="${data.devResetLink}" target="_blank" rel="noopener">Open reset link (dev mode — SMTP not configured)</a></p>` : ''}`;
+                notice.innerHTML = `<p>${data.message || 'Reset link sent.'}</p>`;
             }
             if (button) { button.disabled = false; button.textContent = 'Send reset link'; }
             forgotForm.reset();
